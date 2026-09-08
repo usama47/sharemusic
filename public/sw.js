@@ -6,7 +6,6 @@ const SHELL = [
   '/css/ceremony.css',
   '/js/local-floor.js',
   '/js/local-admin.js',
-  '/js/floor.js',
   '/manifest.webmanifest',
   '/icons/icon.svg'
 ];

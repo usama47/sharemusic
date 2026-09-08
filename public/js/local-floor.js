@@ -11,6 +11,18 @@ window.LocalShareMusicFloor = (() => {
     function startLoop() { if (frame) return; const tick = () => { frame = requestAnimationFrame(tick); const current = elapsed(); const duration = Number(state.track?.durationMs || 0); el.playingTime.textContent = fmt(current); el.progressBar.style.width = duration ? `${Math.min(100, current / duration * 100)}%` : '0%'; if (state.status === 'running' && state.startAt > Date.now()) { el.countdown.textContent = Math.max(1, Math.ceil((state.startAt - Date.now()) / 1000)); el.playingStatus.textContent = 'Starting in a moment…'; } else { el.playingStatus.textContent = state.playbackRate && state.playbackRate !== 1 ? `Synchronized · ${state.playbackRate}× speed` : 'Synchronized with the host.'; } syncAudio(); }; frame = requestAnimationFrame(tick); }
     function stopLoop() { if (frame) cancelAnimationFrame(frame); frame = 0; }
     function connect() { socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/local-ws`); socket.onopen = () => { el.joinStatus.textContent = joined ? 'Connected to the host.' : 'Connected to local hotspot.'; socket.send(JSON.stringify({ type: 'register', role: 'listener', label: `Mobile-${Math.random().toString(36).slice(2, 6)}` })); }; socket.onclose = () => { el.reconnect.classList.remove('hidden'); setTimeout(connect, 1500); }; socket.onmessage = event => { const message = JSON.parse(event.data); if (message.type === 'state') { state = message.state; render(); } if (message.type === 'tracks' && state.track) { state.track = message.tracks.find(track => track.id === state.track.id) || state.track; } }; }
+    let installPrompt = null;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (!standalone) {
+      el.install.classList.remove('hidden');
+      el.install.textContent = window.isSecureContext ? 'Install ShareMusic' : 'Add to Home screen';
+      el.install.onclick = async () => {
+        if (installPrompt) { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; el.install.classList.add('hidden'); return; }
+        el.joinStatus.textContent = window.isSecureContext ? 'Use your browser menu to install ShareMusic.' : 'Chrome menu ⋮ → Add to Home screen. Local hotspot pages cannot show the automatic install prompt over HTTP.';
+      };
+    }
+    window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; el.install.classList.remove('hidden'); el.install.textContent = 'Install ShareMusic'; });
+    window.addEventListener('appinstalled', () => { installPrompt = null; el.install.classList.add('hidden'); });
     el.join.onclick = async () => { joined = true; try { el.audio.muted = true; await el.audio.play(); el.audio.pause(); el.audio.muted = false; } catch (_) {} el.joinStatus.textContent = 'Ready. Waiting for the host.'; render(); }; connect();
   }
   return { start };
