@@ -22,17 +22,13 @@
       <p id="join-status" class="hint">Connecting to the host…</p>
     </div>
   </main>
-  <main id="waiting-screen" class="listener-screen hidden"><div class="listener-card"><p class="eyebrow">READY</p><h1>Waiting for the host.</h1><p id="waiting-track" class="lead">The next song will begin here.</p><p id="waiting-status" class="hint"></p></div></main>
+  <main id="waiting-screen" class="listener-screen hidden"><div class="listener-card"><p class="eyebrow">READY TO LISTEN</p><h1>Waiting for the host.</h1><div class="track-card"><span class="track-card-icon">♪</span><div><strong id="waiting-track">Waiting for a song</strong><span id="waiting-status">The host will start playback soon.</span></div></div></div></main>
   <main id="countdown-screen" class="listener-screen hidden"><p id="countdown">3</p><p class="eyebrow">GET READY</p></main>
-  <main id="playing-screen" class="listener-screen playing-screen hidden"><div class="pulse-mark"></div><p class="eyebrow">NOW PLAYING</p><h1 id="playing-track">ShareMusic</h1><p id="playing-time" class="time">00:00</p><p class="hint">Sound is synchronized with the host.</p></main>
+  <main id="playing-screen" class="listener-screen playing-screen hidden"><div class="pulse-mark"></div><p class="eyebrow"><span class="live-dot"></span> NOW PLAYING</p><h1 id="playing-track">ShareMusic</h1><div class="listener-progress"><div id="listener-progress-bar"></div></div><div class="listener-time"><span id="playing-time">00:00</span><span id="playing-duration">--:--</span></div><p id="playing-status" class="hint">Synchronized with the host.</p></main>
   <main id="ended-screen" class="listener-screen hidden"><div class="listener-card"><p class="eyebrow">FINISHED</p><h1>Thanks for listening.</h1><p class="lead">The host can start another song whenever ready.</p></div></main>
   <div id="reconnect" class="reconnect hidden">Connection lost. Reconnecting…</div>
   <audio id="audio" preload="auto" playsinline></audio>
-  <script src="/js/runtime-config.js"></script>
   <script src="/js/local-floor.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/js/supabase-config.js"></script>
-  <script src="/js/floor.js"></script>
   <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   </script>

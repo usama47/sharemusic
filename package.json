@@ -1,16 +1,13 @@
 {
   "name": "sharemusic",
   "version": "1.0.0",
-  "description": "Supabase-backed synchronized music room with a mobile host dashboard and listener PWA.",
+  "description": "Offline Android-hotspot synchronized music room with a mobile host dashboard and listener PWA.",
   "main": "server.js",
   "scripts": {
-    "build": "node scripts/generate-config.js",
     "start": "node server.js",
-    "prestart": "node scripts/generate-config.js",
-    "verify-demo": "node scripts/generate-config.js && node scripts/verify-demo.js",
+    "verify-demo": "node scripts/verify-demo.js",
     "dev": "node server.js",
-    "local-host": "node server.js",
-    "predev": "node scripts/generate-config.js"
+    "local-host": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",

@@ -11,20 +11,21 @@ const dataDir = path.join(root, 'data');
 const localMediaDir = path.join(root, 'local-media');
 const tracksFile = path.join(dataDir, 'local-tracks.json');
 const port = process.env.PORT || 3000;
+const START_DELAY_MS = 3000;
 
 for (const directory of [dataDir, localMediaDir]) fs.mkdirSync(directory, { recursive: true });
 function loadJson(file, fallback) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return fallback; } }
 function saveJson(file, value) { fs.writeFileSync(file, JSON.stringify(value, null, 2)); }
-function elapsedMs() { if (state.status === 'running' && state.startAt) return Math.max(0, Date.now() - state.startAt); return state.status === 'paused' ? state.pausedAtMs || 0 : 0; }
+function elapsedMs() { if (state.status === 'running' && state.startAt) return Math.max(0, (Date.now() - state.startAt) * state.playbackRate); return state.status === 'paused' ? state.pausedAtMs || 0 : 0; }
 function publicState() { return { status: state.status, track: state.track, startAt: state.startAt, pausedAtMs: state.pausedAtMs, elapsedMs: elapsedMs(), serverNow: Date.now() }; }
 function broadcast(message) { const payload = JSON.stringify(message); for (const client of clients) if (client.readyState === 1) client.send(payload); }
 function broadcastState() { broadcast({ type: 'state', state: publicState() }); }
 function clearEndTimer() { if (endTimer) clearTimeout(endTimer); endTimer = null; }
-function scheduleEnd(token, startAt, durationMs) { clearEndTimer(); endTimer = setTimeout(() => { if (token !== runToken || state.status !== 'running' || state.startAt !== startAt) return; state.status = 'ended'; state.pausedAtMs = durationMs; broadcastState(); }, Math.max(0, startAt + durationMs - Date.now()) + 50); }
+function scheduleEnd(token, startAt, durationMs) { clearEndTimer(); endTimer = setTimeout(() => { if (token !== runToken || state.status !== 'running' || state.startAt !== startAt) return; state.status = 'ended'; state.pausedAtMs = durationMs; broadcastState(); }, Math.max(0, startAt + durationMs / state.playbackRate - Date.now()) + 50); }
 
 let tracks = loadJson(tracksFile, []);
 if (!Array.isArray(tracks)) tracks = [];
-let state = { status: 'idle', track: tracks[0] || null, startAt: null, pausedAtMs: null };
+let state = { status: 'idle', track: tracks[0] || null, startAt: null, pausedAtMs: null, playbackRate: 1 };
 let endTimer = null;
 let runToken = 0;
 const clients = new Set();
@@ -38,7 +39,6 @@ const upload = multer({
   fileFilter: (req, file, callback) => callback(null, file.mimetype.startsWith('audio/') || /\.(mp3|m4a|ogg|oga|wav|webm)$/i.test(file.originalname))
 });
 
-app.get('/js/runtime-config.js', (req, res) => res.type('application/javascript').send("window.SHAREMUSIC_RUNTIME = { mode: 'local', wsPath: '/local-ws' };"));
 app.use('/local-media', express.static(localMediaDir, { maxAge: '1h' }));
 app.use(express.json({ limit: '32kb' }));
 app.use(express.static(publicDir, { etag: true }));
@@ -63,8 +63,8 @@ app.delete('/local/tracks/:id', (req, res) => {
 
 function startPlayback() {
   if (!state.track?.durationMs) return;
-  const token = ++runToken; clearEndTimer(); state.status = 'running'; state.startAt = Date.now() + 3000; state.pausedAtMs = null; broadcastState();
-  setTimeout(() => { if (token === runToken && state.status === 'running') scheduleEnd(token, state.startAt, state.track.durationMs); }, 3000);
+  const token = ++runToken; clearEndTimer(); state.status = 'running'; state.startAt = Date.now() + START_DELAY_MS; state.pausedAtMs = null; broadcastState();
+  setTimeout(() => { if (token === runToken && state.status === 'running') scheduleEnd(token, state.startAt, state.track.durationMs); }, START_DELAY_MS);
 }
 function broadcastDevices() { const listeners = [...devices.values()].filter(device => device.role === 'listener'); broadcast({ type: 'devices', count: listeners.length, devices: listeners }); }
 
@@ -76,9 +76,11 @@ wss.on('connection', socket => {
     if (devices.get(socket)?.role === 'admin') {
       if (message.type === 'start' && ['idle', 'ended'].includes(state.status)) startPlayback();
       if (message.type === 'pause' && state.status === 'running') { state.pausedAtMs = elapsedMs(); state.status = 'paused'; clearEndTimer(); ++runToken; broadcastState(); }
-      if (message.type === 'resume' && state.status === 'paused') { state.startAt = Date.now() - state.pausedAtMs; state.status = 'running'; scheduleEnd(++runToken, state.startAt, state.track.durationMs); broadcastState(); }
+      if (message.type === 'resume' && state.status === 'paused') { state.startAt = Date.now() - state.pausedAtMs / state.playbackRate; state.status = 'running'; scheduleEnd(++runToken, state.startAt, state.track.durationMs); broadcastState(); }
       if (message.type === 'stop') { clearEndTimer(); ++runToken; state.status = 'idle'; state.startAt = null; state.pausedAtMs = null; broadcastState(); }
       if (message.type === 'select-track') { const track = tracks.find(item => item.id === message.trackId); if (track && ['idle', 'ended'].includes(state.status)) { state.track = track; broadcastState(); } }
+      if (message.type === 'seek' && state.track) { const position = Math.max(0, Math.min(state.track.durationMs, Number(message.positionMs) || 0)); if (state.status === 'paused') state.pausedAtMs = position; else if (state.status === 'running') state.startAt = Date.now() - position / state.playbackRate; broadcastState(); if (state.status === 'running') scheduleEnd(++runToken, state.startAt, state.track.durationMs); }
+      if (message.type === 'speed' && state.track) { const speed = Number(message.playbackRate); if (Number.isFinite(speed) && speed >= 0.5 && speed <= 2) { const position = elapsedMs(); state.playbackRate = speed; if (state.status === 'running') state.startAt = Date.now() - position / speed; broadcastState(); if (state.status === 'running') scheduleEnd(++runToken, state.startAt, state.track.durationMs); } }
     }
     if (message.type === 'clock:sync') socket.send(JSON.stringify({ type: 'clock:sync', t0: message.t0, serverTime: Date.now() }));
   });

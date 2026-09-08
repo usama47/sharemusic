@@ -4,8 +4,6 @@ const SHELL = [
   '/floor.html',
   '/css/tokens.css',
   '/css/ceremony.css',
-  '/js/supabase-config.js',
-  '/js/runtime-config.js',
   '/js/local-floor.js',
   '/js/local-admin.js',
   '/js/floor.js',
