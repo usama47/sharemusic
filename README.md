@@ -1,69 +1,47 @@
 # ShareMusic
 
-ShareMusic is an offline music room for an Android host phone. The host phone creates a Wi-Fi hotspot, stores the music locally, and synchronizes playback to friends over the hotspot. Internet is only needed to install Termux and copy the project to the phone.
+One shared music room, with a direct dashboard at `/admin` and a listener at `/floor`. It uses plain HTML/JavaScript and a persistent Node server (Express, Multer, WebSockets).
 
-## Android host setup
+## Run
 
-Install Termux from F-Droid or the official Termux releases. While internet is available, run:
+Install Node 18 or newer, then:
 
-```bash
-pkg update
-pkg install nodejs-lts git
-cd sharemusic
+```sh
 npm install
+npm start
 ```
 
-During the event:
+`npm run dev` and `npm run local-host` start the same server. `PORT` defaults to 3000. Startup prints interface addresses; choose one reachable by listeners. `127.0.0.1` is only for the server device. `/` redirects to `/floor`.
 
-1. Turn on the Android Wi-Fi hotspot.
-2. Keep mobile data off if desired.
-3. Start the host:
+Open `/admin`, upload a supported audio file, and select a track. Listeners open `/floor` and tap Join when a track is available. The dashboard shows each listener's reported loading, ready, playing, paused, blocked, or error status. Readiness means audio is enabled and the browser has future media data; it does not mean the entire file is downloaded. Start is a host decision, not a barrier waiting for every listener.
 
-   ```bash
-   npm run local-host
-   ```
+Start and Resume use a three-second countdown. Pause, Stop, seeking, and speed changes affect the room. Stop resets position. Seeking while stopped sets the next start position. Selecting a track resets the position. A stopped selected track can be deleted, including the last track. The next remaining track is then selected. There is no playlist or automatic next track.
 
-4. Open the printed `/admin` address on the host phone.
-5. Upload one or more local MP3, M4A, OGG, OGA, WAV, or WebM files.
-6. Select a track.
-7. Friends connect to the hotspot and open the printed `/floor` address.
-8. Friends tap **Join and enable audio**.
-9. Press **Start**. Playback begins for everyone after a three-second countdown.
+The dashboard's native audio controls preview only the selected file on that device. Room playback pauses preview. To hear synchronized playback, use `/floor`.
 
-The event uses only the host phone's local HTTP server, local WebSocket connection, local audio files, and hotspot network. Supabase and internet are not used.
+## Storage and access
 
-## Android requirements
+Files upload to the machine running Node, in `local-media/`, with metadata in `data/local-tracks.json`. Supported extensions: MP3, M4A, OGG, OGA, WAV, WebM; maximum 150 MB per file. The uploading browser must be able to read a finite duration. Codec support still depends on each listener's browser. Files and metadata are ignored by Git. Listeners fetch audio automatically over HTTP; WebSockets carry state and commands, not audio.
 
-- Keep Termux open and running.
-- Keep the host phone charging.
-- Disable battery optimization for Termux.
-- Keep the screen awake during playback.
-- Disable VPNs.
-- If friends cannot connect, disable hotspot client isolation.
-- Use the exact IP address printed by the server or the hotspot gateway address.
+There is intentionally no login. Anyone who can reach the server can open the dashboard and modify the library or playback. WebSocket roles are command routing, not authentication. Deploy within the intended trusted audience. Room state and listener presence reset when the server restarts; the library persists. Run one server process against one storage directory.
 
-Typical listener URL:
+## Deployment and browser behavior
 
-```text
-http://10.10.11.192:3000/floor
-```
+Deploy the complete project to a machine with a persistent Node process, writable disk, and reachable HTTP/WebSocket port. Static-only hosting cannot provide the upload API, storage, or WebSocket room. Obsolete static-provider rewrite files have been removed. A reverse proxy must forward WebSocket upgrades; use HTTPS/WSS if secure browser features are needed.
 
-Typical admin URL:
+Once dependencies are installed, the application makes no internet-service requests. An Android Termux Node runtime is an optional hosting environment, not a browser-hosted server. Network reachability, device runtime availability, and power management must be checked on the chosen host.
 
-```text
-http://10.10.11.192:3000/admin
-```
+The service worker is network-only and clears legacy ShareMusic caches. It does not cache music, API state, or stale page code, and it does not turn a stopped server into an offline room. Registration is limited to secure contexts (HTTPS or browser-trusted localhost). Home-screen installation availability depends on the browser; HTTP LAN pages can still be used as ordinary pages.
 
-The address may differ by Android device or hotspot configuration.
+Clients estimate server time with round-trip clock samples and correct media drift. Control messages apply immediately without depending on animation frames. Reconnection restores current server state; visibility changes trigger resynchronization. Browsers and operating systems can still suspend JavaScript, WebSockets, or audio in the background. Output-device latency and codec differences are not calibrated. Sample-accurate playback or locked-screen reliability is not guaranteed; validate on the actual devices. A failed audio-enable attempt leaves Join available and restores the mute state.
 
-## Local storage
+## Validation
 
-Uploaded files are stored on the host phone in `local-media/`. Track metadata is stored in `data/local-tracks.json`. These event files are ignored by Git and are not uploaded anywhere.
-
-## Verification
-
-```bash
+```sh
+npm test
 npm run verify-demo
 ```
 
-This project does not capture or redistribute native YouTube playback. Use audio files you are authorized to distribute.
+Tests use temporary storage, real HTTP/WebSocket requests, and deterministic browser/media mocks. They do not replace real-device audio tests. `verify-demo` checks required assets and runs the regression suite. No test writes to the project's music library.
+
+See `REVIEW-FIXES.md` for the finding-by-finding disposition and validation scope.

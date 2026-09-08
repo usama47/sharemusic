@@ -20,6 +20,9 @@ input { width: 100%; padding: 12px 13px; color: #fff; background: #071a11; borde
 .button:disabled { cursor: not-allowed; opacity: .4; }
 .button-primary { background: #147344; border-color: #d8b866; font-weight: 600; }
 .button-quiet { background: transparent; }
+.button { text-decoration: none; }
+#preview { width: 100%; margin-top: 10px; }
+.track-select:disabled, .delete-track:disabled { opacity: .4; cursor: not-allowed; }
 .error { min-height: 20px; color: #ffad98; font-size: 13px; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(320px, .9fr); gap: 16px; }
 .player-panel { grid-row: span 2; min-height: 380px; display: flex; flex-direction: column; }

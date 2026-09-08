@@ -12,7 +12,7 @@
     <section id="dashboard">
       <header class="topbar">
         <div><p class="eyebrow">SHAREMUSIC / CONTROL</p><h1>Room dashboard</h1></div>
-        <button id="logout" class="button button-quiet">Log out</button>
+        <a href="/floor" class="button button-quiet">Open listener</a>
       </header>
       <div class="dashboard-grid">
         <section class="panel player-panel">
@@ -27,6 +27,7 @@
             <button id="stop" class="button" disabled>Stop</button>
           </div>
           <p id="message" class="hint">Choose a song, then press Start.</p>
+          <p id="admin-error" class="error" role="alert"></p>
         </section>
 
         <section class="panel library-panel">
@@ -35,7 +36,8 @@
           <p class="upload-note">Select multiple files. Uploads continue one by one and stay available for this room.</p>
           <div id="upload-queue" class="upload-queue" aria-live="polite"></div>
           <div id="tracks" class="track-list"></div>
-          <audio id="preview" preload="metadata"></audio>
+          <p class="hint">Preview the selected track on this device. Preview is separate from room playback.</p>
+          <audio id="preview" preload="metadata" controls hidden></audio>
         </section>
 
         <section class="panel devices-panel">
@@ -45,6 +47,7 @@
       </div>
     </section>
   </main>
+  <script src="/js/room-client.js"></script>
   <script src="/js/local-admin.js"></script>
 </body>
 </html>

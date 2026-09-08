@@ -1,10 +1,11 @@
 {
   "name": "sharemusic",
   "version": "1.0.0",
-  "description": "Offline Android-hotspot synchronized music room with a mobile host dashboard and listener PWA.",
+  "description": "Single-room synchronized music server with a direct dashboard and browser listeners.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "test": "node --test",
     "verify-demo": "node scripts/verify-demo.js",
     "dev": "node server.js",
     "local-host": "node server.js"

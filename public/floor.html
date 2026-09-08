@@ -28,9 +28,10 @@
   <main id="ended-screen" class="listener-screen hidden"><div class="listener-card"><p class="eyebrow">FINISHED</p><h1>Thanks for listening.</h1><p class="lead">The host can start another song whenever ready.</p></div></main>
   <div id="reconnect" class="reconnect hidden">Connection lost. Reconnecting…</div>
   <audio id="audio" preload="auto" playsinline></audio>
+  <script src="/js/room-client.js"></script>
   <script src="/js/local-floor.js"></script>
   <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if (window.isSecureContext && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
   </script>
 </body>
 </html>
