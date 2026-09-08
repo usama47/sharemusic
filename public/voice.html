@@ -10,7 +10,7 @@
 </head>
 <body>
   <main class="voice-shell">
-    <nav><a href="/floor">Music</a><a href="/admin">Dashboard</a></nav>
+    <nav><a id="voice-back" href="/floor">Back to music</a></nav>
     <p class="eyebrow">SHAREMUSIC / VOICE</p>
     <h1>Stay in touch.</h1>
     <p>Talk with friends on the same Wi-Fi or hotspot. Up to 8 people.</p>
@@ -18,7 +18,7 @@
       <label for="voice-name">Your name</label>
       <input id="voice-name" maxlength="40" placeholder="Friend" autocomplete="nickname">
       <p id="voice-status" role="status" aria-live="polite">Connecting…</p>
-      <p id="voice-requirement" class="notice" hidden>Microphone access needs trusted HTTPS. Ask the host for an HTTPS link that your phone trusts. Regular HTTP music links cannot use the microphone.</p>
+      <p id="voice-requirement" class="notice" hidden>Set up voice once: on the host run <code>npm run local-host:https</code>, then open the Phone setup link printed in its terminal. Install the host’s certificate and open its HTTPS Voice link.</p>
       <div class="actions">
         <button id="voice-join" disabled>Join voice</button>
         <button id="voice-leave" disabled>Leave voice</button>
@@ -27,7 +27,7 @@
       <p id="voice-mic" class="mic-status" aria-live="polite">Microphone off</p>
       <button id="voice-hold" class="talk-button" disabled>Hold to talk</button>
       <button id="voice-open" class="open-button" aria-pressed="false" disabled>Turn on open mic</button>
-      <p class="small">Open mic lets you talk hands-free. Everyone in voice can hear while your mic is on. Switching away mutes your mic; leaving releases it.</p>
+      <p class="small">Open mic lets you talk hands-free. Everyone in voice can hear while your mic is on. Hiding this page mutes your mic; leaving releases it.</p>
     </section>
     <section class="voice-card">
       <h2>In voice <span id="voice-count">0</span></h2>

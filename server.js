@@ -192,7 +192,7 @@ if (require.main === module) {
     for (const entries of Object.values(os.networkInterfaces())) for (const entry of entries || []) if (entry.family === 'IPv4' && !entry.internal) addresses.add(entry.address);
     console.log('ShareMusic running. Use an address reachable from the other devices:');
     for (const address of addresses) console.log(`Admin: ${protocol}://${address}:${host.server.address().port}/admin\nListener: ${protocol}://${address}:${host.server.address().port}/floor\nVoice: ${protocol}://${address}:${host.server.address().port}/voice`);
-    if (!tls) console.log('Voice on other devices requires trusted HTTPS (TLS_KEY/TLS_CERT or an HTTPS reverse proxy).');
+    if (!tls) console.log('For music + microphone on other phones, stop this server and run: npm run local-host:https (then open the printed Phone setup link).');
   });
 }
 module.exports = { createHost };

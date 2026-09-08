@@ -1,5 +1,9 @@
 (() => {
   const $ = id => document.getElementById(id);
+  if (/(?:^|[?&])from=admin(?:&|$)/.test(location.search || '')) {
+    $('voice-back').setAttribute('href', '/admin');
+    $('voice-back').textContent = 'Back to dashboard';
+  }
   let room, voice, holding = false, openMic = false;
   const supported = window.isSecureContext && navigator.mediaDevices?.getUserMedia && window.RTCPeerConnection && (window.AudioContext || window.webkitAudioContext);
   function render(state) {

@@ -12,8 +12,10 @@
     <section id="dashboard">
       <header class="topbar">
         <div><p class="eyebrow">SHAREMUSIC / CONTROL</p><h1>Room dashboard</h1></div>
-        <a href="/floor" class="button button-quiet">Open listener</a>
-        <a href="/voice" class="button button-quiet">Voice chat</a>
+        <nav class="topbar-actions" aria-label="App navigation">
+          <a href="/floor" class="button button-quiet">Listener view</a>
+          <a href="/voice?from=admin" class="button button-primary">Voice chat</a>
+        </nav>
       </header>
       <div class="dashboard-grid">
         <section class="panel player-panel">

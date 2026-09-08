@@ -14,6 +14,22 @@ wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
 for (let i = 0; i < samples; i++) wav.writeInt16LE(Math.round(200 * Math.sin(i * Math.PI * 2 * 220 / 8000)), 44 + i * 2);
 fs.writeFileSync(path.join(root, 'smoke.wav'), wav);
 const host = createHost({ storageRoot: root });
+if (process.argv.includes('--voice-test')) {
+  const handler = host.server.listeners('request')[0];
+  host.server.removeListener('request', handler);
+  host.server.on('request', (req, res) => {
+    if (req.url === '/voice-test') {
+      res.setHeader('Content-Type', 'text/html');
+      const html = fs.readFileSync(path.join(__dirname, '../public/voice.html'), 'utf8');
+      return res.end(html.replace('<script src="/js/room-client.js">', '<script src="/voice-test-media.js"></script><script src="/js/room-client.js">'));
+    }
+    if (req.url === '/voice-test-media.js') {
+      res.setHeader('Content-Type', 'text/javascript');
+      return res.end(fs.readFileSync(path.join(__dirname, '../tests/voice-test-media.js')));
+    }
+    handler(req, res);
+  });
+}
 host.server.listen(0, '127.0.0.1', () => console.log(JSON.stringify({ url: `http://127.0.0.1:${host.server.address().port}`, file: path.join(root, 'smoke.wav') })));
 let stopping = false;
 async function stop() {

@@ -37,16 +37,15 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
       context = new (window.AudioContext || window.webkitAudioContext)();
       context.onstatechange = notify;
       // Resume within the Join gesture; permission can resolve later.
-      const audioReady = context.resume().then(() => true, () => false);
+      context.resume().catch(() => {});
       const acquired = await navigator.mediaDevices.getUserMedia({ video: false, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       if (attempt !== session) { acquired.getTracks().forEach(track => track.stop()); return; }
       stream = acquired;
+      if (!stream.getAudioTracks().length) throw new Error('No microphone track');
       stream.getAudioTracks().forEach(track => {
         track.enabled = false;
         track.onended = () => { if (stream === acquired) { leave(); message = 'Microphone disconnected. Join again when ready.'; notify(); } };
       });
-      await audioReady;
-      if (attempt !== session) return;
       if (!send({ type: 'voice:join', name })) throw new Error('Connection lost');
       joinTimer = setTimeout(() => { leave(); message = 'Voice join timed out. Try joining again.'; notify(); }, 10000);
     } catch (error) {
@@ -78,9 +77,12 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
     };
     pc.ontrack = event => {
       if (!context || peers.get(id) !== peer || event.track.kind !== 'audio') return;
-      peer.source?.disconnect();
-      peer.source = context.createMediaStreamSource(new MediaStream([event.track]));
-      peer.source.connect(context.destination); notify();
+      try {
+        peer.source?.disconnect();
+        peer.source = context.createMediaStreamSource(new MediaStream([event.track]));
+        peer.source.connect(context.destination);
+      } catch (_) { message = 'A friend’s audio could not play. Leave and rejoin voice to retry.'; }
+      notify();
     };
     pc.onconnectionstatechange = () => {
       if (peers.get(id) !== peer) return;
@@ -97,7 +99,9 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
       for (const id of [...peers.keys()]) if (!members.has(id)) closePeer(id);
       for (const member of members.values()) {
         if (member.id === selfId || peers.has(member.id)) continue;
-        const peer = createPeer(member.id);
+        let peer;
+        try { peer = createPeer(member.id); }
+        catch (_) { leave(); message = 'This device could not open another voice connection. Try rejoining with fewer people.'; notify(); return; }
         // One deterministic offerer per pair avoids glare when several people join.
         if (selfId < member.id) queue(peer, async () => {
           await peer.pc.setLocalDescription(await peer.pc.createOffer());

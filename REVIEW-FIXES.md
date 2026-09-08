@@ -53,3 +53,17 @@ The dashboard now uses `public/js/room-audio.js`, the same synchronized audio en
 Listeners now have Pause for everyone / Resume for everyone, including during countdown. These are explicit server commands broadcast to the host and all listeners. Other room controls remain dashboard-only. The original listener-role restriction finding now applies to Start/Stop/seek/speed/selection, not Pause/Resume.
 
 Validation: all 19 regression tests pass, including shared commands across three WebSocket peers, host audio following position/rate/stop, blocked-host retry, and pending enable races. Desktop browser smoke confirmed host audio playing unmuted, listener Pause pausing host audio, listener Resume restarting both after a countdown, and no browser warning/error logs. This is not a physical mobile/acoustic timing test.
+
+## Follow-up: voice chat and listener navigation
+
+Implemented `/voice` with hold-to-talk and optional open mic, initially muted, eight-person membership, direct WebRTC audio, local signaling, peer status, permission/error handling, and full microphone/connection cleanup. Added native TLS configuration (`TLS_KEY`/`TLS_CERT`) and clear HTTP/unsupported-browser feedback. Supplying certificates trusted by the participating phones remains deployment setup; the app does not bypass browser microphone security. The missing startup script behind the user's Connecting screenshot is now present and covered by the earlier voice entrypoint check.
+
+Voice signaling and lifecycle regressions brought the suite to 25 passing tests before the user requested no further test work. Following that request, no additional tests were written or run. Latest navigation and tighter drift-correction edits received syntax checks only; real-device voice and acoustic alignment remain for the user's testing.
+
+Admin navigation has Listener view and Voice chat buttons. `/floor` keeps shared Pause/Resume and has a prominent Voice chat button. Voice opened from a listener returns only to `/floor`; opening from the dashboard returns to `/admin`. The existing direct-admin access policy is unchanged.
+
+## Follow-up: offline HTTPS launch
+
+Added `npm run local-host:https`: OpenSSL generates a persistent local CA and a renewed server certificate covering discovered or explicitly supplied host addresses. HTTPS uses port 3000; a separate HTTP setup page on 3001 distributes only the public certificate, its fingerprint, trust instructions and HTTPS links. Private keys remain in ignored `certs/` with restrictive Unix permissions. The launcher handles unavailable Termux address discovery, invalid ports/addresses, missing OpenSSL and occupied ports. Existing custom TLS configuration remains available. HTTP voice feedback now points to the concrete setup workflow.
+
+Phone certificate trust must be installed manually once; no browser security exemption or device trust changes are performed by the app. Keep the CA across restarts and project updates. Syntax checks for the launcher/server and whitespace checks passed. No tests were added or run for this change as requested; certificate enrollment and voice on physical phones remain unverified.

@@ -64,7 +64,7 @@ test('voice offers one side per pair, queues early ICE, attaches remote audio an
   assert.equal(h.sockets[0].sent.find(m => m.description?.type === 'offer').to, 'c');
   const candidate = { candidate: 'candidate:test', sdpMid: '0', sdpMLineIndex: 0 };
   h.sockets[0].receive({ type: 'voice:signal', from: 'a', candidate }); await flush(); assert.equal(calls.pcs[0].candidates.length, 0);
-  h.sockets[0].receive({ type: 'voice:signal', from: 'a', description: { type: 'offer', sdp: 'sdp' } }); await flush();
+  h.sockets[0].receive({ type: 'voice:signal', from: 'a', description: { type: 'offer', sdp: 'sdp' } }); await flush(); await flush();
   assert.equal(calls.pcs[0].candidates.length, 1); assert.equal(calls.pcs[0].localDescription.type, 'answer');
   calls.pcs[0].ontrack({ track: { kind: 'audio' } }); assert(calls.contexts[0].sources[0].connected);
   roster([{ id: 'c', name: '<script>', micOn: true }]); assert.equal(calls.pcs[0].connectionState, 'closed'); assert.equal(calls.contexts[0].sources[0].connected, false);

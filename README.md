@@ -47,3 +47,50 @@ npm run verify-demo
 Tests use temporary storage, real HTTP/WebSocket requests, and deterministic browser/media mocks. They do not replace real-device audio tests. `verify-demo` checks required assets and runs the regression suite. No test writes to the project's music library.
 
 See `REVIEW-FIXES.md` for the finding-by-finding disposition and validation scope.
+
+## Voice chat
+
+Use the **Voice chat** button on `/admin` or `/floor`. The voice page is `/voice`; listener navigation returns to `/floor` and does not expose the dashboard. Voice is independent of the selected music track and works even with an empty library. Navigating to voice leaves the current page's music player; it does not stop the shared music room.
+
+Enter a name and Join voice. Microphone permission is requested only after that click. The mic starts muted. **Hold to talk** transmits while pressed; releasing/canceling the press mutes it. **Turn on open mic** enables hands-free talking until switched off. Up to eight people can join. The list shows membership, microphone-on state (not speech detection), and each peer connection's state. Leave releases the microphone and all peer connections. A lost server connection also releases the mic; rejoining is explicit. Hiding the page mutes transmission. Use headphones to reduce echo.
+
+Voice uses a WebRTC peer connection between each pair and local WebSocket signaling. No public STUN/TURN service, voice recording, or audio upload is used. Everyone must have a reachable local network path. Client isolation, multicast/mDNS restrictions, device firewalls or failed peer connectivity can prevent voice even while music works. There is no guaranteed distance or screen-lock/background operation. This is a foreground small-group voice feature, not a replacement for safety-critical radio communication.
+
+### HTTPS on Termux and other LAN hosts
+
+**An HTTP LAN URL cannot request microphone access.** The host can test on `http://127.0.0.1:3000/voice`, because localhost is a browser-trusted development origin. Other phones need an HTTPS address whose certificate they trust. Changing `http` to `https` alone does not enable TLS, and bypassing a certificate warning is not a deployment solution.
+
+For the included offline HTTPS setup, stop the old server with Ctrl+C, then run in Termux:
+
+```sh
+pkg install openssl-tool
+npm run local-host:https
+```
+
+The app runs on **HTTPS port 3000**, with a **phone setup page on HTTP port 3001**. Open the printed Phone setup link on each phone. It provides the public certificate, Android/iPhone installation instructions, and HTTPS Music/Voice/Admin links. Install and trust this host's certificate once on each participating phone (including the host phone), then open the HTTPS Voice link and allow the microphone. Browsers cannot grant a LAN HTTP microphone exemption for educational projects.
+
+Some Android versions prevent Termux from discovering interface addresses. If only localhost is printed, or the desired address is missing, supply your current Wi-Fi/hotspot IP explicitly:
+
+```sh
+npm run local-host:https -- 10.10.11.192
+```
+
+Use your actual reachable IP, not necessarily the example. Additional IPs or DNS names can be supplied as more arguments or comma-separated `HTTPS_HOSTS`. Restart this command after a network/address change. `PORT` and `SETUP_PORT` override 3000 and 3001. Both must be reachable from the phones. On Windows/macOS install OpenSSL first; `OPENSSL` can specify its executable path.
+
+The launcher generates a local CA and a server certificate with matching address SANs. It preserves the CA in the Git-ignored `certs/` directory and reissues the server certificate at launch. Keep this directory on the host across updates so enrolled phones retain trust. Only the public CA certificate is downloadable; private keys are never served. Check the certificate fingerprint against the host terminal before trusting it. Trusting this CA allows its holder to issue certificates your phone accepts, so keep its keys private and remove its trust/profile from phones when no longer needed. Trust installation is manual; the app does not modify device trust stores. No internet service is needed after installing dependencies and enrolling phones.
+
+Android: choose **CA certificate** in the system's Install a certificate settings, not Wi-Fi/client certificate. iPhone/iPad: install the downloaded profile, then enable ShareMusic Local CA under **General → About → Certificate Trust Settings**. See [Android certificate help](https://support.google.com/pixelphone/answer/2844832?hl=en) and [Apple certificate trust help](https://support.apple.com/en-us/102390). Menu names differ across Android devices. If HTTPS shows a certificate error, check trust, address and device time before using voice.
+
+If you already have a trusted PEM private key and certificate chain valid for the hostname/IP your friends use, the original direct TLS option is also available:
+
+```sh
+TLS_KEY="$PWD/certs/voice-key.pem" TLS_CERT="$PWD/certs/voice-cert.pem" npm run local-host
+```
+
+Keep the private key on the host. An existing trusted HTTPS reverse proxy that forwards `/local-ws` is another option. The HTTPS launcher uses the same persistent music library as the HTTP server; changing protocol does not delete uploads. Run only one music server at a time.
+
+Update the complete project on Termux, including `scripts/https-host.js` and `package.json`, before using the new command. The ordinary HTTP voice page now gives actionable setup instructions. A correctly trusted HTTPS voice page hides those instructions and enables Join when connected.
+
+### Music alignment
+
+The host and listeners use the same server-clock estimate and audio engine. Initial clock sampling is faster, foreground correction runs every 50 ms, and large corrections now begin at 80 ms rather than 350 ms. Smaller drift gets proportional rate correction. These are control thresholds, not a guarantee of acoustic alignment: browser media precision, speaker/Bluetooth latency, buffering and OS suspension can still create audible differences. Test on the actual phones, preferably using comparable output devices.

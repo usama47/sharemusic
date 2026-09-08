@@ -8,7 +8,8 @@
     "test": "node --test",
     "verify-demo": "node scripts/verify-demo.js",
     "dev": "node server.js",
-    "local-host": "node server.js"
+    "local-host": "node server.js",
+    "local-host:https": "node scripts/https-host.js"
   },
   "dependencies": {
     "express": "^4.19.2",

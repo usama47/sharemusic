@@ -6,10 +6,16 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
   const current = () => window.ShareMusicRoom.elapsed(state, now());
   const snapshot = () => ({ enabled, enabling, trackId, status, message,
     ready: connected && enabled && audio.readyState >= 3 && !audio.error && ['ready', 'playing', 'paused'].includes(status) });
-  const notify = () => onChange(snapshot());
+  let lastNotice = '';
+  const notify = () => {
+    const sound = snapshot(), key = JSON.stringify(sound);
+    if (key !== lastNotice) { lastNotice = key; onChange(sound); }
+  };
   function seek(seconds, force = false) {
     if (audio.readyState < 1) return;
-    if (Math.abs(audio.currentTime - seconds) > (force ? 0.03 : 0.35)) {
+    // Correct perceptible drift promptly; do not let devices diverge by 350 ms.
+    // Only explicit state changes force small seeks, avoiding canplay/seek loops.
+    if (!audio.seeking && Math.abs(audio.currentTime - seconds) > (force ? 0.005 : 0.08)) {
       try { audio.currentTime = seconds; } catch (_) { /* Retry after metadata loads. */ }
     }
   }
@@ -24,7 +30,8 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
     }
     seek(seconds, force);
     const difference = seconds - audio.currentTime;
-    audio.playbackRate = state.playbackRate * (Math.abs(difference) > 0.08 ? difference > 0 ? 1.02 : 0.98 : 1);
+    const correction = Math.abs(difference) > 0.012 ? Math.max(-0.03, Math.min(0.03, difference * 0.5)) : 0;
+    audio.playbackRate = state.playbackRate * (1 + correction);
     if (audio.paused && !playPending && audio.readyState >= 2) {
       playPending = true;
       const attempt = generation;
@@ -79,11 +86,13 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
     if (event === 'error') { enabled = false; message = 'This audio could not be loaded or decoded. Choose another file or retry audio.'; }
     // Stop also wins if a delayed native play event arrives after an enable timeout.
     if (event === 'playing' && !enabling && (!enabled || !connected || state.status !== 'running' || state.startAt > now())) audio.pause();
-    if (event === 'loadedmetadata' || event === 'canplay') sync(true);
+    if (event === 'loadedmetadata') sync(true);
+    else if (event === 'canplay') sync();
     notify();
   });
   function refresh(force = false) { sync(force); schedule(); }
-  setInterval(() => sync(), 250);
+  // UI rendering stays at 250 ms; media alignment needs a finer foreground loop.
+  setInterval(() => sync(), 50);
   document.addEventListener('visibilitychange', () => refresh(true));
   window.addEventListener('pageshow', () => refresh(true));
   return { snapshot, enable, setState, refresh,
