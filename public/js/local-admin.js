@@ -3,7 +3,7 @@ window.LocalShareMusicAdmin = (() => {
     const el = {
       loginPanel: document.querySelector('#login-panel'), dashboard: document.querySelector('#dashboard'), uploadDrop: document.querySelector('#upload-drop'), upload: document.querySelector('#upload'), uploadQueue: document.querySelector('#upload-queue'), tracks: document.querySelector('#tracks'), trackCount: document.querySelector('#track-count'), preview: document.querySelector('#preview'), trackName: document.querySelector('#track-name'), status: document.querySelector('#status'), clock: document.querySelector('#clock'), progress: document.querySelector('#progress-bar'), seek: document.querySelector('#seek'), speed: document.querySelector('#speed'), start: document.querySelector('#start'), pause: document.querySelector('#pause'), stop: document.querySelector('#stop'), message: document.querySelector('#message'), deviceCount: document.querySelector('#device-count'), devices: document.querySelector('#devices'), logout: document.querySelector('#logout')
     };
-    el.loginPanel.classList.add('hidden'); el.dashboard.classList.remove('hidden');
+    el.dashboard.classList.remove('hidden');
     let socket; let tracks = []; let state = { status: 'idle', track: null, startAt: null, pausedAtMs: 0, playbackRate: 1 };
     const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const fmt = ms => { const seconds = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; };

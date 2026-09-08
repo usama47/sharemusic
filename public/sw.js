@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sharemusic-shell-v1';
+const CACHE_NAME = 'sharemusic-shell-v2';
 const SHELL = [
   '/floor',
   '/floor.html',

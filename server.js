@@ -41,6 +41,14 @@ const upload = multer({
 
 app.use('/local-media', express.static(localMediaDir, { maxAge: '1h' }));
 app.use(express.json({ limit: '32kb' }));
+app.use((req, res, next) => {
+  if (req.path === '/admin' || req.path === '/floor' || req.path.endsWith('.html') || req.path.startsWith('/js/') || req.path.startsWith('/css/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
 app.use(express.static(publicDir, { etag: true }));
 app.get('/admin', (req, res) => res.sendFile(path.join(publicDir, 'admin.html')));
 app.get('/floor', (req, res) => res.sendFile(path.join(publicDir, 'floor.html')));
