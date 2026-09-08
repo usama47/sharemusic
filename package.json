@@ -1,0 +1,19 @@
+{
+  "name": "pakistan-anthem-sync",
+  "version": "1.0.0",
+  "description": "Synchronized floor presentation for Pakistan Independence Day - National Anthem ceremony across many laptops on one network.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "fetch-media": "node scripts/fetch-media.js",
+    "generate-placeholders": "node scripts/generate-placeholders.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "multer": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

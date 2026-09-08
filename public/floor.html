@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pakistan — Independence Day Ceremony</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Nastaliq+Urdu:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/tokens.css?v=20260813-final">
+<link rel="stylesheet" href="/css/ceremony.css?v=20260813-final">
+</head>
+<body>
+
+<!-- ============ PRE-JOIN ============ -->
+<section id="screen-join" class="screen screen--join">
+  <div class="join-card">
+    <div class="join-eyebrow">14 AUGUST</div>
+    <h1 class="join-title">Independence Day<br>Ceremony</h1>
+    <p class="join-sub">This laptop will join the synchronized floor presentation. When the administrator begins the ceremony, the flag and anthem will start here at the exact same moment as every other laptop.</p>
+    <button id="btn-join" class="btn btn--primary">Join & Enable Audio</button>
+    <div class="join-meta">
+      <span id="conn-dot" class="dot dot--pending"></span>
+      <span id="conn-label">Connecting to sync server…</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WAITING ROOM ============ -->
+<section id="screen-waiting" class="screen screen--waiting hidden">
+  <div class="waiting-mark" aria-hidden="true">
+    <svg viewBox="0 0 100 100"><polygon points="50,4 61,38 97,38 68,59 79,93 50,72 21,93 32,59 3,38 39,38" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+  </div>
+  <div class="waiting-title" id="waiting-title">Ready</div>
+  <div class="waiting-sub" id="waiting-sub">Waiting for the ceremony to begin</div>
+  <button id="btn-open-extended" class="btn btn--ghost btn--small">Open Tribute Display for Second Screen</button>
+  <button id="btn-fullscreen" class="btn btn--ghost btn--small hidden">Enter Fullscreen</button>
+  <div class="waiting-meta" id="waiting-meta"></div>
+</section>
+
+<!-- ============ COUNTDOWN ============ -->
+<div id="countdown" class="countdown hidden"><span id="countdown-num">3</span></div>
+
+<!-- ============ MAIN STAGE — FLAG ============ -->
+<section id="screen-main" class="screen screen--main hidden">
+  <div id="flag-mount" class="flag-mount">
+    <img id="flag-image" class="flag-image" src="/media/flag/pakistan-flag.jpg" alt="Pakistan flag">
+  </div>
+  <div class="main-veil"></div>
+  <button id="stage-fullscreen-main" class="stage-fullscreen-btn" type="button">FULL SCREEN</button>
+  <div class="presentation-fullscreen-hint">Double-click for fullscreen</div>
+  <audio id="anthem-audio" preload="auto" playsinline><source src="/media/anthem/pakistan-national-anthem.mp3" type="audio/mpeg"></audio>
+  <audio id="secondary-audio" preload="auto" playsinline><source src="/media/secondary/dil-say-pakistan.mp3" type="audio/mpeg"></audio>
+</section>
+
+<!-- ============ EXTENDED STAGE — TRIBUTE ============ -->
+<section id="screen-extended" class="screen screen--extended hidden">
+  <div id="photo-a" class="photo-layer"><div class="poster-backdrop"></div><img class="poster-image" alt=""></div>
+  <div id="photo-b" class="photo-layer"><div class="poster-backdrop"></div><img class="poster-image" alt=""></div>
+  <div class="tribute-veil"></div>
+  <button id="stage-fullscreen-extended" class="stage-fullscreen-btn" type="button">FULL SCREEN</button>
+  <div class="presentation-fullscreen-hint">Double-click for fullscreen</div>
+</section>
+
+<!-- ============ FINAL MOMENT ============ -->
+<section id="screen-final" class="screen screen--final hidden">
+  <div class="final-star" aria-hidden="true">
+    <svg viewBox="0 0 100 100"><polygon points="50,4 61,38 97,38 68,59 79,93 50,72 21,93 32,59 3,38 39,38" fill="currentColor"/></svg>
+  </div>
+  <div class="final-word">PAKISTAN</div>
+  <div class="final-urdu">آزادی مبارک</div>
+</section>
+
+<div id="reconnect-banner" class="reconnect-banner hidden">Reconnecting to sync server…</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/clocksync.js?v=20260813-final"></script>
+<script src="/js/schedule.js?v=20260813-final"></script>
+<script src="/js/flag.js?v=20260813-final"></script>
+<script src="/js/floor.js?v=20260813-final"></script>
+</body>
+</html>

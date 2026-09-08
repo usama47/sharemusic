@@ -1,0 +1,44 @@
+/* ---------- Design tokens ----------
+   Palette drawn from the flag itself: deep field green, crescent white,
+   a near-black backdrop with a green undertone (not pure black), and a
+   restrained gold used only for ceremonial hairlines and the admin's
+   "synchronized" state — never as a primary color.
+*/
+:root {
+  --pk-green-deep: #013220;   /* flag field, darkened for large surfaces */
+  --pk-green-flag: #01411C;   /* true flag green, used for the flag itself */
+  --pk-green-rich: #0E5C34;   /* mid green for gradients / hover states */
+  --ink: #05130B;             /* backdrop — green-black, not pure black */
+  --ink-raised: #0A1F14;      /* panel surfaces on the backdrop */
+  --white: #FBFBF8;           /* warm white, softer than pure #fff */
+  --pure-white: #FFFFFF;
+  --gold: #B8933F;            /* ceremonial accent, used sparingly */
+  --gold-soft: rgba(184, 147, 63, 0.35);
+  --mist: #A9C2B2;            /* muted sage — secondary text on dark */
+  --mist-dim: #6E8A79;
+  --danger: #B14B3E;
+
+  --font-display: 'Fraunces', 'Georgia', serif;
+  --font-body: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --ease-ceremonial: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--ink);
+  color: var(--white);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+::selection { background: var(--gold-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
