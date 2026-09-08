@@ -1,14 +1,17 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-function browser(page, { epoch = 100000 } = {}) {
+function browser(page, { epoch = 100000, prepare = () => {} } = {}) {
   let time = 0, wallJump = 0, timerId = 0;
   const timers = new Map(), sockets = [], elements = new Map();
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', `${page}.html`), 'utf8');
   class Element {
     constructor(id) { this.id = id; this.handlers = {}; this.textContent = ''; this.innerHTML = ''; this.style = {}; this.value = 0; this.src = ''; this.readyState = 4; this.paused = true; this.currentTime = 0; this.playbackRate = 1; this.muted = false; this.playCalls = 0; this.loadCalls = 0; this.children = []; const classes = new Set(); this.classList = { add: k => classes.add(k), remove: k => classes.delete(k), contains: k => classes.has(k), toggle: (k, on) => on ? classes.add(k) : classes.delete(k) }; }
     addEventListener(name, fn) { (this.handlers[name] ||= []).push(fn); }
-    emit(name) { for (const fn of this.handlers[name] || []) fn({}); }
+    emit(name, event = {}) { for (const fn of this.handlers[name] || []) fn(event); }
+    setAttribute(name, value) { (this.attributes ||= {})[name] = value; }
+    replaceChildren(...items) { this.children = items; }
+    setPointerCapture(id) { this.captured = id; }
     pause() { this.paused = true; }
     play() { this.playCalls++; if (this.playImpl) return this.playImpl(); this.paused = false; return Promise.resolve(); }
     load() { this.loadCalls++; }
@@ -33,6 +36,7 @@ function browser(page, { epoch = 100000 } = {}) {
     setTimeout: (fn, delay) => addTimer(fn, delay, 0), clearTimeout: id => timers.delete(id), setInterval: (fn, delay) => addTimer(fn, delay, delay), clearInterval: id => timers.delete(id),
     fetch: async () => ({ ok: true, json: async () => [] }), Audio: Element, URL: { createObjectURL: () => 'blob:test', revokeObjectURL() {} }
   };
+  prepare({ context, window, document, Element });
   vm.createContext(context);
   for (const [, src] of html.matchAll(/<script src="([^"]+)"/g)) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', src), 'utf8'), context, { filename: src });
   return { context, window, document, elements, sockets, timers, e: id => elements.get(id), time: () => epoch + time,

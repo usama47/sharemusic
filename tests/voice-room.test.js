@@ -1,0 +1,22 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createVoiceRoom } = require('../voice-room');
+test('voice room enforces capacity, registration, signaling shape and joined-only recipients', () => {
+  const received = new Map();
+  const room = createVoiceRoom({ maxPeers: 2, send(socket, value) { if (!received.has(socket)) received.set(socket, []); received.get(socket).push(value); } });
+  const a = {}, b = {}, outsider = {}, device = { role: 'voice' };
+  room.handle(outsider, { type: 'voice:join' }); assert.equal(received.size, 0);
+  room.handle(a, { type: 'voice:join', name: 'a' }, device);
+  room.handle(b, { type: 'voice:join', name: 'b' }, device);
+  room.handle(outsider, { type: 'voice:join' }, device); assert.equal(received.get(outsider).at(-1).type, 'voice:error');
+  const target = received.get(b).at(-1).selfId;
+  const initial = received.get(b).length;
+  for (const description of [null, {}, { type: 'invalid', sdp: 'x' }, { type: 'offer', sdp: 'x'.repeat(20001) }]) room.handle(a, { type: 'voice:signal', to: target, description }, device);
+  room.handle(outsider, { type: 'voice:signal', to: target, description: { type: 'offer', sdp: 'x' } }, device);
+  room.handle(a, { type: 'voice:signal', to: target, candidate: { candidate: 'x', sdpMLineIndex: -1 } }, device);
+  assert.equal(received.get(b).length, initial);
+  room.handle(a, { type: 'voice:signal', to: target, candidate: { candidate: 'x', sdpMid: '0', sdpMLineIndex: 0 } }, device);
+  assert.equal(received.get(b).at(-1).candidate.candidate, 'x');
+  room.leave(a); assert.equal(received.get(b).at(-1).peers.length, 1);
+  room.handle(outsider, { type: 'voice:join' }, device); assert.equal(received.get(outsider).at(-1).type, 'voice:peers');
+});

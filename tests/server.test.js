@@ -132,3 +132,20 @@ test('a listener can pause/resume for admin and all peers, but cannot stop, seek
   assert.equal(current.status, 'running'); assert.equal(current.playbackRate, 1); assert.equal(current.startAt, resumed.startAt); assert.equal(current.positionMs, resumed.positionMs);
   await admin.command({ type: 'stop' });
 });
+
+test('voice signaling routes only joined members, preserves sender identity, and leaves music presence separate', async t => {
+  const f = await fixture(t);
+  assert.equal((await fetch(f.url + '/voice')).status, 200);
+  assert.equal((await fetch(f.url + '/js/local-voice.js')).status, 200);
+  const admin = await peer(f.url), first = await peer(f.url, 'voice'), second = await peer(f.url, 'voice');
+  const firstRoster = first.wait('voice:peers'); first.send({ type: 'voice:join', name: 'One' }); const firstId = (await firstRoster).selfId;
+  const secondRoster = second.wait('voice:peers'); second.send({ type: 'voice:join', name: 'Two' }); const secondId = (await secondRoster).selfId;
+  const signal = second.wait('voice:signal'); first.send({ type: 'voice:signal', to: secondId, from: 'spoof', description: { type: 'offer', sdp: 'audio sdp' } });
+  assert.equal((await signal).from, firstId);
+  const mic = second.wait('voice:peers', m => m.peers.some(p => p.id === firstId && p.micOn)); first.send({ type: 'voice:mic', micOn: true }); await mic;
+  await upload(f.url); await admin.command({ type: 'start' });
+  first.send({ type: 'pause' }); const barrier = first.wait('clock:sync'); first.send({ type: 'clock:sync', t0: 5 }); await barrier;
+  assert.equal((await (await fetch(f.url + '/local/state')).json()).status, 'running');
+  const remaining = second.wait('voice:peers', m => m.peers.length === 1); first.socket.close(); await remaining;
+  await admin.command({ type: 'stop' });
+});
