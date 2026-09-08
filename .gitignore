@@ -5,3 +5,4 @@ public/uploads/*
 local-media/*
 !local-media/.gitkeep
 data/local-tracks.json
+certs/

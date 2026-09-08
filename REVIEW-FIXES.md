@@ -45,3 +45,11 @@ Baseline: `6c6251b` (remove login panel and update caching). That commit was ins
 Mobile browsers, screen lock, OS suspension, hotspot reachability, codecs beyond the generated WAV, and actual acoustic synchronization were not tested. Network clock estimates and media correction cannot promise sample-accurate sound across hardware or prevent the OS suspending the page. A Home-screen shortcut does not provide an offline server. These are documented limitations, not unimplemented fixes being claimed complete.
 
 Tests are in `tests/clients.test.js`, `tests/server.test.js`, and `tests/worker.test.js`; the deterministic browser harness reads the real HTML script order and IDs. `node scripts/smoke-host.js` starts a disposable manual-browser host and prints a generated WAV path; run it in an interactive terminal and use Ctrl+C (or enter `stop`) to clean up.
+
+## Follow-up: host audio and shared listener controls
+
+The dashboard now uses `public/js/room-audio.js`, the same synchronized audio engine as `/floor`. Start/Resume unlock host audio through the button gesture. A visible Enable audio button handles blocked playback or joining an already-running room. Preview remains a separate local audition and is paused for room playback.
+
+Listeners now have Pause for everyone / Resume for everyone, including during countdown. These are explicit server commands broadcast to the host and all listeners. Other room controls remain dashboard-only. The original listener-role restriction finding now applies to Start/Stop/seek/speed/selection, not Pause/Resume.
+
+Validation: all 19 regression tests pass, including shared commands across three WebSocket peers, host audio following position/rate/stop, blocked-host retry, and pending enable races. Desktop browser smoke confirmed host audio playing unmuted, listener Pause pausing host audio, listener Resume restarting both after a countdown, and no browser warning/error logs. This is not a physical mobile/acoustic timing test.

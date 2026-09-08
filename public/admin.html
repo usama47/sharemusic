@@ -27,6 +27,9 @@
             <button id="stop" class="button" disabled>Stop</button>
           </div>
           <p id="message" class="hint">Choose a song, then press Start.</p>
+          <button id="enable-audio" class="button" type="button" hidden>Enable audio on this device</button>
+          <p id="host-audio-status" class="hint" aria-live="polite"></p>
+          <audio id="room-audio" preload="auto" playsinline></audio>
           <p id="admin-error" class="error" role="alert"></p>
         </section>
 
@@ -48,6 +51,7 @@
     </section>
   </main>
   <script src="/js/room-client.js"></script>
+  <script src="/js/room-audio.js"></script>
   <script src="/js/local-admin.js"></script>
 </body>
 </html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#092719">
+  <title>ShareMusic Voice</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/voice.css">
+</head>
+<body>
+  <main class="voice-shell">
+    <nav><a href="/floor">Music</a><a href="/admin">Dashboard</a></nav>
+    <p class="eyebrow">SHAREMUSIC / VOICE</p>
+    <h1>Stay in touch.</h1>
+    <p>Talk with friends on the same Wi-Fi or hotspot. Up to 8 people.</p>
+    <section class="voice-card">
+      <label for="voice-name">Your name</label>
+      <input id="voice-name" maxlength="40" placeholder="Friend" autocomplete="nickname">
+      <p id="voice-status" role="status" aria-live="polite">Connecting…</p>
+      <p id="voice-requirement" class="notice" hidden>Microphone access needs trusted HTTPS. Ask the host for an HTTPS link that your phone trusts. Regular HTTP music links cannot use the microphone.</p>
+      <div class="actions">
+        <button id="voice-join" disabled>Join voice</button>
+        <button id="voice-leave" disabled>Leave voice</button>
+        <button id="voice-listen" hidden>Enable sound</button>
+      </div>
+      <p id="voice-mic" class="mic-status" aria-live="polite">Microphone off</p>
+      <button id="voice-hold" class="talk-button" disabled>Hold to talk</button>
+      <button id="voice-open" class="open-button" aria-pressed="false" disabled>Turn on open mic</button>
+      <p class="small">Open mic lets you talk hands-free. Everyone in voice can hear while your mic is on. Switching away mutes your mic; leaving releases it.</p>
+    </section>
+    <section class="voice-card">
+      <h2>In voice <span id="voice-count">0</span></h2>
+      <ul id="voice-peers"><li>No one joined yet.</li></ul>
+    </section>
+    <p class="small">Keep this page open and stay on the network. Headphones reduce echo. Voice is live and is not recorded by this app. This does not provide radio range or guaranteed screen-lock operation.</p>
+  </main>
+  <script src="/js/room-client.js"></script>
+  <script src="/js/voice-client.js"></script>
+  <script src="/js/local-voice.js"></script>
+</body>
+</html>

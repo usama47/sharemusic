@@ -17,6 +17,10 @@ h1 { margin: 12px 0; font: 600 clamp(34px, 9vw, 68px)/1.02 Georgia, serif; }
 .button { min-height: 48px; padding: 14px 22px; border: 1px solid #d8b866; border-radius: 8px; color: #fff; background: #147344; cursor: pointer; font-weight: 600; }
 .button-secondary { display: block; margin: 12px auto 0; color: #d8b866; background: transparent; border-color: rgba(216, 184, 102, .55); font-weight: 500; }
 .button-secondary.hidden { display: none; }
+.button:disabled { opacity: .45; cursor: not-allowed; }
+.room-controls { position: fixed; z-index: 2; bottom: max(18px, env(safe-area-inset-bottom)); left: 20px; right: 20px; text-align: center; }
+.room-controls .hint { margin: 8px 0 0; }
+.playing-screen, #countdown-screen { padding-bottom: 125px; }
 #countdown-screen { display: flex; flex-direction: column; gap: 10px; background: #071a11; }
 #countdown { margin: 0; color: #d8b866; font: 600 clamp(110px, 30vw, 260px)/.8 Georgia, serif; }
 .playing-screen { display: flex; flex-direction: column; background: radial-gradient(circle at 50% 42%, rgba(20, 115, 68, .4), transparent 45%), #071a11; }

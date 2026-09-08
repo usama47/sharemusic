@@ -5,9 +5,11 @@ const { randomUUID } = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const http = require('http');
+const https = require('https');
 const { WebSocketServer } = require('ws');
+const { createVoiceRoom } = require('./voice-room');
 
-function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
+function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls } = {}) {
   const dataDir = path.join(storageRoot, 'data');
   const mediaDir = path.join(storageRoot, 'local-media');
   const tracksFile = path.join(dataDir, 'local-tracks.json');
@@ -25,7 +27,7 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
   const state = { status: 'idle', track: tracks[0] || null, startAt: null, positionMs: 0, playbackRate: 1 };
   const devices = new Map();
   const app = express();
-  const server = http.createServer(app);
+  const server = tls ? https.createServer(tls, app) : http.createServer(app);
   const wss = new WebSocketServer({ noServer: true, maxPayload: 32768 });
   let endTimer;
   function elapsedMs() {
@@ -34,6 +36,7 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
   }
   const publicState = () => ({ ...state, pausedAtMs: state.positionMs, elapsedMs: elapsedMs(), serverNow: Date.now() });
   const send = (socket, message) => { if (socket.readyState === 1) socket.send(JSON.stringify(message)); };
+  const voiceRoom = createVoiceRoom({ send });
   const broadcast = message => { for (const socket of wss.clients) send(socket, message); };
   const broadcastState = () => broadcast({ type: 'state', state: publicState() });
   function broadcastDevices() {
@@ -71,6 +74,7 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
   app.get('/', (req, res) => res.redirect('/floor'));
   app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
   app.get('/floor', (req, res) => res.sendFile(path.join(__dirname, 'public/floor.html')));
+  app.get('/voice', (req, res) => res.sendFile(path.join(__dirname, 'public/voice.html')));
   app.use(express.static(path.join(__dirname, 'public'), { etag: true }));
   app.get('/local/state', (req, res) => res.json(publicState()));
   app.get('/local/tracks', (req, res) => res.json(tracks));
@@ -114,12 +118,14 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
       try { message = JSON.parse(raw.toString()); } catch (_) { return; }
       if (!message || typeof message !== 'object' || Array.isArray(message) || typeof message.type !== 'string') return;
       if (message.type === 'register') {
-        devices.set(socket, { role: message.role === 'admin' ? 'admin' : 'listener', label: typeof message.label === 'string' ? message.label.slice(0, 80) : 'Listener', joined: false, ready: false, trackId: null, status: 'not joined' });
+        voiceRoom.leave(socket);
+        devices.set(socket, { role: ['admin', 'voice'].includes(message.role) ? message.role : 'listener', label: typeof message.label === 'string' ? message.label.slice(0, 80) : 'Listener', joined: false, ready: false, trackId: null, status: 'not joined' });
         send(socket, { type: 'state', state: publicState() });
         send(socket, { type: 'tracks', tracks }); broadcastDevices();
       }
       if (message.type === 'clock:sync' && Number.isFinite(message.t0)) send(socket, { type: 'clock:sync', t0: message.t0, serverTime: Date.now() });
       const device = devices.get(socket);
+      if (voiceRoom.handle(socket, message, device)) return;
       if (message.type === 'listener:status' && device?.role === 'listener') {
         if (!['not joined', 'loading', 'ready', 'playing', 'paused', 'blocked', 'error', 'ended'].includes(message.status)) return;
         Object.assign(device, { joined: message.joined === true, trackId: message.trackId === state.track?.id ? message.trackId : null, status: message.status });
@@ -127,7 +133,9 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
         broadcastDevices();
       }
       // Direct admin access is intentional: roles route commands, not authenticate users.
-      if (device?.role !== 'admin') return;
+      // Every registered listener may pause/resume the shared room. Other
+      // controls remain on the dashboard; commands are explicit, not toggles.
+      if (!device || (device.role !== 'admin' && !(device.role === 'listener' && ['pause', 'resume'].includes(message.type)))) return;
       if (message.type === 'start' && state.track && ['idle', 'ended'].includes(state.status)) {
         if (state.status === 'ended' || state.positionMs >= state.track.durationMs) state.positionMs = 0;
         state.status = 'running'; state.startAt = Date.now() + startDelayMs;
@@ -152,7 +160,7 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
       } else return;
       scheduleEnd(); broadcastState();
     });
-    socket.on('close', () => { devices.delete(socket); broadcastDevices(); });
+    socket.on('close', () => { voiceRoom.leave(socket); devices.delete(socket); broadcastDevices(); });
   });
   const heartbeat = setInterval(() => {
     for (const socket of wss.clients) {
@@ -174,13 +182,17 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000 } = {}) {
   return { server, close };
 }
 if (require.main === module) {
-  const host = createHost();
+  if (!!process.env.TLS_KEY !== !!process.env.TLS_CERT) throw new Error('Set both TLS_KEY and TLS_CERT to enable HTTPS');
+  const tls = process.env.TLS_KEY ? { key: fs.readFileSync(process.env.TLS_KEY), cert: fs.readFileSync(process.env.TLS_CERT) } : undefined;
+  const host = createHost({ tls });
+  const protocol = tls ? 'https' : 'http';
   const port = process.env.PORT || 3000;
   host.server.listen(port, '0.0.0.0', () => {
     const addresses = new Set(['127.0.0.1']);
     for (const entries of Object.values(os.networkInterfaces())) for (const entry of entries || []) if (entry.family === 'IPv4' && !entry.internal) addresses.add(entry.address);
     console.log('ShareMusic running. Use an address reachable from the other devices:');
-    for (const address of addresses) console.log(`Admin: http://${address}:${port}/admin\nListener: http://${address}:${port}/floor`);
+    for (const address of addresses) console.log(`Admin: ${protocol}://${address}:${host.server.address().port}/admin\nListener: ${protocol}://${address}:${host.server.address().port}/floor\nVoice: ${protocol}://${address}:${host.server.address().port}/voice`);
+    if (!tls) console.log('Voice on other devices requires trusted HTTPS (TLS_KEY/TLS_CERT or an HTTPS reverse proxy).');
   });
 }
 module.exports = { createHost };

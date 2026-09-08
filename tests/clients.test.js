@@ -104,3 +104,56 @@ test('preview is explicit, follows selection and pauses for room playback; readi
   assert.equal(h.e('device-count').textContent, '1/2 ready'); assert.match(h.e('devices').innerHTML, /blocked/);
   h.state({ track: null }); assert.equal(h.e('preview').hidden, true); assert.equal(h.e('preview').src, '');
 });
+
+test('admin Start enables synchronized host audio and follows room pause, resume, seek and stop', async () => {
+  const h = browser('admin'); await flush(); h.sockets[0].open(); h.state({});
+  await h.e('start').onclick();
+  assert.equal(h.sockets[0].sent.at(-1).type, 'start');
+  assert.equal(h.e('room-audio').src, '/local-media/test.wav');
+  assert.equal(h.e('room-audio').muted, false);
+  assert(h.e('enable-audio').hidden);
+  h.state({ status: 'running', startAt: h.time() + 3000 });
+  const plays = h.e('room-audio').playCalls;
+  h.advance(2999); await flush(); assert(h.e('room-audio').paused); assert.equal(h.e('room-audio').playCalls, plays);
+  h.advance(1); await flush(); assert(!h.e('room-audio').paused);
+  h.state({ status: 'paused', positionMs: 6000 }); assert(h.e('room-audio').paused); assert.equal(h.e('room-audio').currentTime, 6);
+  h.state({ status: 'running', startAt: h.time(), positionMs: 6000, playbackRate: 2 }); await flush();
+  assert(!h.e('room-audio').paused); assert.equal(h.e('room-audio').playbackRate, 2);
+  h.state({ status: 'running', startAt: h.time(), positionMs: 20000 }); assert.equal(h.e('room-audio').currentTime, 20);
+  h.state({ status: 'idle' }); assert(h.e('room-audio').paused); assert.equal(h.e('room-audio').currentTime, 0);
+});
+
+test('blocked admin audio does not block the room and has an accessible retry', async () => {
+  const h = browser('admin'); await flush(); h.sockets[0].open(); h.state({});
+  h.e('room-audio').playImpl = () => Promise.reject(Object.assign(Error('blocked'), { name: 'NotAllowedError' }));
+  await h.e('start').onclick(); assert.equal(h.sockets[0].sent.at(-1).type, 'start');
+  assert.equal(h.e('room-audio').muted, false); assert.equal(h.e('enable-audio').hidden, false);
+  assert.match(h.e('host-audio-status').textContent, /blocked/);
+  h.state({ status: 'running', startAt: h.time() - 5000 });
+  delete h.e('room-audio').playImpl; await h.e('enable-audio').onclick(); await flush();
+  assert(!h.e('room-audio').paused); assert.equal(h.e('room-audio').currentTime, 5);
+});
+
+test('listener Pause/Resume sends explicit shared commands and reflects authoritative state', async () => {
+  const h = browser('floor'); h.sockets[0].open(); h.state({}); await h.e('join').onclick();
+  assert(h.e('room-controls').classList.contains('hidden'));
+  h.state({ status: 'running', startAt: h.time() + 3000 });
+  assert(!h.e('room-controls').classList.contains('hidden')); assert.equal(h.e('room-toggle').textContent, 'Pause for everyone');
+  h.e('room-toggle').onclick(); assert.equal(h.sockets[0].sent.at(-1).type, 'pause');
+  h.state({ status: 'paused', positionMs: 4000 });
+  assert.equal(h.e('room-toggle').textContent, 'Resume for everyone'); assert(h.e('audio').paused);
+  h.e('room-toggle').onclick(); assert.equal(h.sockets[0].sent.at(-1).type, 'resume');
+  h.sockets[0].close(); const count = h.sockets[0].sent.length;
+  h.e('room-toggle').onclick(); assert.equal(h.sockets[0].sent.length, count); assert(h.e('room-toggle').disabled);
+});
+
+test('pending host enable cannot override an intervening room command', async () => {
+  const h = browser('admin'); await flush(); h.sockets[0].open(); h.state({});
+  let resolve;
+  h.e('room-audio').playImpl = () => new Promise(done => { resolve = done; });
+  const click = h.e('start').onclick();
+  h.state({ status: 'paused', positionMs: 5000 });
+  resolve(); await click; await flush();
+  assert.equal(h.sockets[0].sent.filter(m => m.type === 'start').length, 0);
+  assert(h.e('room-audio').paused); assert.equal(h.e('room-audio').muted, false);
+});

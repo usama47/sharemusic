@@ -6,7 +6,7 @@ window.LocalShareMusicAdmin = (() => {
     const $ = id => document.getElementById(id);
     const { format, elapsed } = window.ShareMusicRoom;
     const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-    let room, connected = false, tracks = [], previewId = null;
+    let room, player, connected = false, tracks = [], previewId = null, stateVersion = 0;
     let state = { status: 'idle', track: null, startAt: null, positionMs: 0, playbackRate: 1 };
     let uploadChain = Promise.resolve();
     const error = message => { $('admin-error').textContent = message; };
@@ -22,7 +22,8 @@ window.LocalShareMusicAdmin = (() => {
       $('seek').max = duration;
       if (document.activeElement !== $('seek')) $('seek').value = current;
       $('speed').value = String(state.playbackRate);
-      $('start').disabled = !connected || !state.track || !['idle', 'ended'].includes(state.status);
+      const sound = player.snapshot();
+      $('start').disabled = sound.enabling || !connected || !state.track || !['idle', 'ended'].includes(state.status);
       $('pause').disabled = !connected || !['running', 'paused'].includes(state.status);
       $('pause').textContent = state.status === 'paused' ? 'Resume' : 'Pause';
       $('stop').disabled = !connected || !['running', 'paused'].includes(state.status);
@@ -30,6 +31,9 @@ window.LocalShareMusicAdmin = (() => {
       $('speed').disabled = !connected;
       $('message').textContent = !connected ? 'Reconnecting to the room…' : countdown ? 'Playback starts after the countdown.' : state.status === 'running' ? 'Playing for the room.' : state.status === 'paused' ? 'Playback is paused.' : state.track ? 'Review listener readiness, then press Start.' : 'Upload an audio file to begin.';
       $('preview').hidden = !state.track;
+      $('enable-audio').hidden = !state.track || sound.enabled;
+      $('enable-audio').disabled = !connected || sound.enabling;
+      $('host-audio-status').textContent = sound.message || (sound.enabling ? 'Enabling audio…' : sound.enabled ? 'Room audio is enabled on this device.' : state.track ? 'Start also enables your audio. If joining a running room, tap Enable audio.' : '');
     }
     function renderTracks() {
       $('track-count').textContent = `${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`;
@@ -46,7 +50,7 @@ window.LocalShareMusicAdmin = (() => {
       });
     }
     function applyState(next) {
-      state = next;
+      stateVersion++; state = next;
       if (previewId !== (state.track?.id || null)) {
         $('preview').pause(); previewId = state.track?.id || null;
         if (state.track) $('preview').src = state.track.url;
@@ -55,6 +59,7 @@ window.LocalShareMusicAdmin = (() => {
       }
       // Preview is an explicit local audition, not an extra synchronized player.
       if (state.status === 'running') $('preview').pause();
+      player.setState(state);
       render(); renderTracks();
     }
     function renderDevices(message) {
@@ -122,16 +127,27 @@ window.LocalShareMusicAdmin = (() => {
       }
       uploadChain.then(loadTracks);
     }
+    player = window.ShareMusicAudio({ audio: $('room-audio'), now: () => room?.now() ?? Date.now(), onChange: () => render() });
     room = window.ShareMusicRoom.connect({ role: 'admin', label: 'Dashboard',
-      onConnection(value) { connected = value; $('connection').textContent = value ? 'Room connected' : 'Reconnecting…'; render(); renderTracks(); if (value) error(''); },
+      onConnection(value) { connected = value; player.setConnected(value); $('connection').textContent = value ? 'Room connected' : 'Reconnecting…'; render(); renderTracks(); if (value) error(''); },
       onMessage(message) {
         if (message.type === 'state') applyState(message.state);
         if (message.type === 'tracks') { tracks = message.tracks; renderTracks(); }
         if (message.type === 'devices') renderDevices(message);
-      }, onClock: render
+      }, onClock() { player.refresh(); render(); }
     });
-    $('start').onclick = () => { $('preview').pause(); send({ type: 'start' }); };
-    $('pause').onclick = () => send({ type: state.status === 'paused' ? 'resume' : 'pause' });
+    async function startOrResume(type) {
+      if (!connected) { error('Disconnected. Wait for the room to reconnect.'); return; }
+      if (player.snapshot().enabling) return;
+      const version = stateVersion;
+      $('preview').pause();
+      await player.enable();
+      // An intervening room command must win over this pending audio gesture.
+      if (version === stateVersion && connected) send({ type });
+    }
+    $('start').onclick = () => startOrResume('start');
+    $('pause').onclick = () => state.status === 'paused' ? startOrResume('resume') : send({ type: 'pause' });
+    $('enable-audio').onclick = () => { $('preview').pause(); return player.enable(); };
     $('stop').onclick = () => send({ type: 'stop' });
     $('seek').onchange = () => send({ type: 'seek', positionMs: Number($('seek').value) });
     $('speed').onchange = () => send({ type: 'speed', playbackRate: Number($('speed').value) });

@@ -94,7 +94,7 @@ test('state contract preserves position/rate/countdown through seek, pause, resu
   await p.command({ type: 'stop' });
 });
 
-test('malformed WS data cannot crash host; listener roles cannot issue room commands; readiness is scoped', async t => {
+test('malformed WS data cannot crash host; listeners cannot start tracks; readiness is scoped', async t => {
   const f = await fixture(t); const track = (await (await upload(f.url)).json()).track;
   const p = await peer(f.url), listener = await peer(f.url, 'listener');
   for (const raw of ['null', '[]', '12', '"hello"', '{', '{}', '{"type":null}']) p.socket.send(raw);
@@ -107,4 +107,28 @@ test('malformed WS data cannot crash host; listener roles cannot issue room comm
   ready = p.wait('devices'); listener.send({ type: 'listener:status', joined: true, ready: true, trackId: 'old', status: 'ready' }); assert.equal((await ready).devices[0].ready, false);
   ready = p.wait('devices'); listener.send({ type: 'listener:status', joined: true, ready: true, trackId: track.id, status: 'blocked' }); assert.equal((await ready).devices[0].ready, false);
   const gone = p.wait('devices', m => m.count === 0); listener.socket.close(); await gone;
+});
+
+test('a listener can pause/resume for admin and all peers, but cannot stop, seek or change speed', async t => {
+  const f = await fixture(t); await upload(f.url);
+  const admin = await peer(f.url), first = await peer(f.url, 'listener'), second = await peer(f.url, 'listener');
+  await admin.command({ type: 'start' });
+  const adminPause = admin.wait('state', m => m.state.status === 'paused');
+  const secondPause = second.wait('state', m => m.state.status === 'paused');
+  const firstPause = first.wait('state', m => m.state.status === 'paused');
+  first.send({ type: 'pause' });
+  const paused = (await firstPause).state;
+  assert.deepEqual((await adminPause).state, paused); assert.deepEqual((await secondPause).state, paused);
+  const adminResume = admin.wait('state', m => m.state.status === 'running');
+  const firstResume = first.wait('state', m => m.state.status === 'running');
+  const secondResume = second.wait('state', m => m.state.status === 'running');
+  second.send({ type: 'resume' });
+  const resumed = (await secondResume).state;
+  assert.deepEqual((await adminResume).state, resumed); assert.deepEqual((await firstResume).state, resumed);
+  assert(resumed.startAt > resumed.serverNow); assert.equal(resumed.positionMs, paused.positionMs);
+  for (const command of [{ type: 'stop' }, { type: 'seek', positionMs: 30000 }, { type: 'speed', playbackRate: 2 }, { type: 'resume' }]) first.send(command);
+  const barrier = first.wait('clock:sync'); first.send({ type: 'clock:sync', t0: 99 }); await barrier;
+  const current = await (await fetch(f.url + '/local/state')).json();
+  assert.equal(current.status, 'running'); assert.equal(current.playbackRate, 1); assert.equal(current.startAt, resumed.startAt); assert.equal(current.positionMs, resumed.positionMs);
+  await admin.command({ type: 'stop' });
 });

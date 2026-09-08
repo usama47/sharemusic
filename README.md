@@ -17,7 +17,9 @@ Open `/admin`, upload a supported audio file, and select a track. Listeners open
 
 Start and Resume use a three-second countdown. Pause, Stop, seeking, and speed changes affect the room. Stop resets position. Seeking while stopped sets the next start position. Selecting a track resets the position. A stopped selected track can be deleted, including the last track. The next remaining track is then selected. There is no playlist or automatic next track.
 
-The dashboard's native audio controls preview only the selected file on that device. Room playback pauses preview. To hear synchronized playback, use `/floor`.
+The dashboard also plays synchronized room audio. Pressing Start or Resume enables audio on the admin device; if the browser blocks it or the dashboard joins an already-running room, use **Enable audio on this device**. The separate native preview controls still audition only the selected file; room playback pauses preview.
+
+Listeners have **Pause for everyone** and **Resume for everyone** controls after joining, including during the countdown. Either action updates the server and all listeners and dashboards. Resume uses the same shared countdown and position. Track selection, Start, Stop, seeking, and speed remain dashboard controls.
 
 ## Storage and access
 
