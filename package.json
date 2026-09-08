@@ -1,12 +1,11 @@
 {
-  "name": "pakistan-anthem-sync",
+  "name": "sharemusic",
   "version": "1.0.0",
-  "description": "Synchronized floor presentation for Pakistan Independence Day - National Anthem ceremony across many laptops on one network.",
+  "description": "Fast LAN music room with an authenticated host dashboard and synchronized mobile listeners.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "fetch-media": "node scripts/fetch-media.js",
-    "generate-placeholders": "node scripts/generate-placeholders.js"
+    "verify-demo": "node scripts/verify-demo.js"
   },
   "dependencies": {
     "express": "^4.19.2",

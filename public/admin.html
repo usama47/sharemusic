@@ -1,117 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ceremony Control — Pakistan Independence Day</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Work+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/tokens.css">
-<link rel="stylesheet" href="/css/admin.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShareMusic Admin</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body>
+  <main class="admin-shell">
+    <section id="login-panel" class="panel login-panel">
+      <p class="eyebrow">SHAREMUSIC / CONTROL</p>
+      <h1>Play one song for the room.</h1>
+      <p class="muted">Sign in from the host device. Everyone on the same network can listen from the mobile link.</p>
+      <form id="login-form" class="stack">
+        <label>Username<input id="username" autocomplete="username" required value="admin"></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+        <button class="button button-primary" type="submit">Open dashboard</button>
+      </form>
+      <p id="login-error" class="error" role="alert"></p>
+      <p class="hint">Default username: <strong>admin</strong>. Default password: <strong>sharemusic</strong>.</p>
+    </section>
 
-<header class="topbar">
-  <div class="topbar-eyebrow">14 AUGUST · FLOOR CEREMONY</div>
-  <h1 class="topbar-title">Ceremony Control</h1>
-  <div class="topbar-conn"><span id="admin-conn-dot" class="dot dot--pending"></span><span id="admin-conn-label">Connecting…</span></div>
-</header>
+    <section id="dashboard" class="hidden">
+      <header class="topbar">
+        <div><p class="eyebrow">SHAREMUSIC / CONTROL</p><h1>Room dashboard</h1></div>
+        <button id="logout" class="button button-quiet">Log out</button>
+      </header>
+      <div class="dashboard-grid">
+        <section class="panel player-panel">
+          <div class="section-heading"><div><p class="eyebrow">NOW PLAYING</p><h2 id="track-name">No song selected</h2></div><span id="status" class="status">Idle</span></div>
+          <div class="progress"><div id="progress-bar"></div></div>
+          <div class="time-row"><span id="clock">00:00 / 00:00</span><span id="connection">Connecting…</span></div>
+          <div class="controls">
+            <button id="start" class="button button-primary" disabled>Start</button>
+            <button id="pause" class="button" disabled>Pause</button>
+            <button id="stop" class="button" disabled>Stop</button>
+          </div>
+          <p id="message" class="hint">Choose a song, then press Start.</p>
+        </section>
 
-<main class="grid">
+        <section class="panel library-panel">
+          <div class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>One song at a time</h2></div></div>
+          <label class="upload button button-quiet">Upload audio<input id="upload" type="file" accept="audio/*,.mp3,.m4a,.ogg,.oga,.wav,.webm" hidden></label>
+          <div id="tracks" class="track-list"></div>
+          <audio id="preview" preload="metadata"></audio>
+        </section>
 
-  <!-- ---------------- Status + Transport ---------------- -->
-  <section class="panel panel--stats">
-    <div class="stat"><div class="stat-num" id="stat-connected">0</div><div class="stat-label">Connected</div></div>
-    <div class="stat"><div class="stat-num" id="stat-ready">0</div><div class="stat-label">Ready</div></div>
-    <div class="stat stat--gold"><div class="stat-num" id="stat-synced">0</div><div class="stat-label">Synchronized</div></div>
-    <div class="stat stat--danger"><div class="stat-num" id="stat-offline">0</div><div class="stat-label">Offline</div></div>
-  </section>
-
-  <section class="panel panel--transport">
-    <div class="transport-row">
-      <button id="btn-start" class="tbtn tbtn--go">▶ Start</button>
-      <button id="btn-pause" class="tbtn">⏸ Pause</button>
-      <button id="btn-stop" class="tbtn">■ Stop</button>
-      <button id="btn-restart" class="tbtn tbtn--reset">↻ Reset &amp; Start</button>
-    </div>
-    <div class="transport-meta">
-      <span id="clock-readout" class="clock-readout">00:00 / 00:00</span>
-      <span class="transport-status" id="status-pill">Idle</span>
-    </div>
-    <div class="transport-current">Current display: <strong id="current-display-label">—</strong></div>
-  </section>
-
-  <!-- ---------------- Live Previews ---------------- -->
-  <section class="panel panel--preview">
-    <div class="preview-block">
-      <div class="preview-label">Main Screen Preview</div>
-      <div class="preview-frame preview-frame--main">
-        <div id="prev-flag-mount" class="prev-flag-mount"><img id="prev-flag-image" src="/media/flag/pakistan-flag.jpg?v=20260812-4" alt="Pakistan flag"></div>
-        <div class="prev-main-caption" id="prev-anthem-label">National Anthem</div>
+        <section class="panel devices-panel">
+          <div class="section-heading"><div><p class="eyebrow">LISTENERS</p><h2>Connected mobiles</h2></div><strong id="device-count">0</strong></div>
+          <div id="devices" class="device-list"><p class="muted">No listeners yet.</p></div>
+        </section>
       </div>
-    </div>
-    <div class="preview-block">
-      <div class="preview-label">Extended Screen Preview</div>
-      <div class="preview-frame preview-frame--ext">
-        <div id="prev-photo" class="prev-photo"></div>
-        <div class="prev-ext-caption">
-          <div id="prev-name" class="prev-name">—</div>
-          <div id="prev-title" class="prev-title"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------------- Devices ---------------- -->
-  <section class="panel panel--devices">
-    <div class="panel-heading">Connected Laptops</div>
-    <div id="device-list" class="device-list"><div class="device-empty">No laptops connected yet.</div></div>
-  </section>
-
-  <!-- ---------------- Media Library ---------------- -->
-  <section class="panel panel--media">
-    <div class="panel-heading">Media Library</div>
-    <div class="media-upload">
-      <label class="upload-drop" id="upload-drop">
-        <input type="file" id="file-input" accept="audio/*,image/*,.webm,.gif" hidden multiple>
-        <span>Drop files here or click to upload</span>
-        <span class="upload-hint">Anthem MP3 · JPG / PNG / WebP · GIF / WebM</span>
-      </label>
-      <div class="upload-progress hidden" id="upload-progress">Uploading…</div>
-    </div>
-    <div id="media-list" class="media-list"></div>
-  </section>
-
-  <!-- ---------------- Timeline Editor ---------------- -->
-  <section class="panel panel--timeline">
-    <div class="panel-heading-row">
-      <div class="panel-heading">Presentation Timeline</div>
-      <div class="timeline-actions">
-        <button id="btn-add-photo" class="tbtn tbtn--small">+ Add Photo</button>
-        <button id="btn-save-timeline" class="tbtn tbtn--small tbtn--gold">Save Timeline</button>
-      </div>
-    </div>
-    <div class="timeline-settings">
-      <label>Countdown before start (sec) <input type="number" id="setting-countdown" min="0" max="30"></label>
-      <label>Ceremony ends at (mm:ss) <input type="text" id="setting-final" placeholder="03:20"></label>
-    </div>
-    <div id="timeline-rows" class="timeline-rows"></div>
-    <div class="timeline-save-note" id="timeline-save-note"></div>
-  </section>
-
-  <!-- ---------------- Media Sources & Attribution ---------------- -->
-  <section class="panel panel--sources">
-    <div class="panel-heading">Media Sources &amp; Attribution</div>
-    <div class="sources-note">Every photo and audio track shipped with this demo was sourced from an openly-licensed repository, or intentionally left as a placeholder if a suitably-licensed asset could not be verified. See <code>media-sources.json</code> and run <code>npm run fetch-media</code> to pull the verified archival files.</div>
-    <div id="sources-list" class="sources-list"></div>
-  </section>
-
-</main>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="/js/clocksync.js"></script>
-<script src="/js/schedule.js"></script>
-<script src="/js/flag.js"></script>
-<script src="/js/admin.js"></script>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/clocksync.js"></script>
+  <script src="/js/admin.js"></script>
 </body>
 </html>
