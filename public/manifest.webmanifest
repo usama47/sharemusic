@@ -1,0 +1,19 @@
+{
+  "name": "ShareMusic Listener",
+  "short_name": "ShareMusic",
+  "description": "Listen together with a synchronized local-network music room.",
+  "start_url": "/floor",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071a11",
+  "theme_color": "#092719",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,3 +1,8 @@
 node_modules/
+.env
+public/js/supabase-config.js
 public/uploads/*
 !public/uploads/.gitkeep
+local-media/*
+!local-media/.gitkeep
+data/local-tracks.json

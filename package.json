@@ -1,16 +1,21 @@
 {
   "name": "sharemusic",
   "version": "1.0.0",
-  "description": "Fast LAN music room with an authenticated host dashboard and synchronized mobile listeners.",
+  "description": "Supabase-backed synchronized music room with a mobile host dashboard and listener PWA.",
   "main": "server.js",
   "scripts": {
+    "build": "node scripts/generate-config.js",
     "start": "node server.js",
-    "verify-demo": "node scripts/verify-demo.js"
+    "prestart": "node scripts/generate-config.js",
+    "verify-demo": "node scripts/generate-config.js && node scripts/verify-demo.js",
+    "dev": "node server.js",
+    "local-host": "node server.js",
+    "predev": "node scripts/generate-config.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "socket.io": "^4.7.5",
-    "multer": "^2.0.0"
+    "multer": "^2.3.0",
+    "ws": "^8.21.3"
   },
   "engines": {
     "node": ">=18"

@@ -14,12 +14,12 @@
       <h1>Play one song for the room.</h1>
       <p class="muted">Sign in from the host device. Everyone on the same network can listen from the mobile link.</p>
       <form id="login-form" class="stack">
-        <label>Username<input id="username" autocomplete="username" required value="admin"></label>
+        <label>Email address<input id="username" type="email" autocomplete="username" required></label>
         <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
         <button class="button button-primary" type="submit">Open dashboard</button>
       </form>
       <p id="login-error" class="error" role="alert"></p>
-      <p class="hint">Default username: <strong>admin</strong>. Default password: <strong>sharemusic</strong>.</p>
+      <p class="hint">Use the email and password created in Supabase Authentication.</p>
     </section>
 
     <section id="dashboard" class="hidden">
@@ -41,8 +41,10 @@
         </section>
 
         <section class="panel library-panel">
-          <div class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>One song at a time</h2></div></div>
-          <label class="upload button button-quiet">Upload audio<input id="upload" type="file" accept="audio/*,.mp3,.m4a,.ogg,.oga,.wav,.webm" hidden></label>
+          <div class="section-heading"><div><p class="eyebrow">LIBRARY</p><h2>Your listening shelf</h2></div><span id="track-count" class="count-badge">0 tracks</span></div>
+          <label id="upload-drop" class="upload-drop"><span class="upload-icon">+</span><span class="upload-title">Add audio files</span><span class="upload-subtitle">Tap to browse or drop multiple files here</span><input id="upload" type="file" accept="audio/*,.mp3,.m4a,.ogg,.oga,.wav,.webm" hidden multiple></label>
+          <p class="upload-note">Select multiple files. Uploads continue one by one and stay available for this room.</p>
+          <div id="upload-queue" class="upload-queue" aria-live="polite"></div>
           <div id="tracks" class="track-list"></div>
           <audio id="preview" preload="metadata"></audio>
         </section>
@@ -54,8 +56,10 @@
       </div>
     </section>
   </main>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/clocksync.js"></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/local-admin.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/supabase-config.js"></script>
   <script src="/js/admin.js"></script>
 </body>
 </html>
