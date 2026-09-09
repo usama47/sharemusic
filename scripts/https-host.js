@@ -25,14 +25,15 @@ async function main() {
     const address = value.trim();
     if (!address) continue;
     if (net.isIP(address) === 6) throw new Error('Use the host’s IPv4 LAN address; this launcher listens on IPv4.');
-    if (!net.isIP(address) && !/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(address)) {
+    if (!net.isIP(address) && (address.length > 253 || !address.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)))) {
       throw new Error(`Invalid HTTPS hostname/IP: ${address}`);
     }
     addresses.add(address);
   }
   const openssl = process.env.OPENSSL || 'openssl';
   function run(args) {
-    const result = spawnSync(openssl, args, { encoding: 'utf8', windowsHide: true });
+    const result = spawnSync(openssl, args, { encoding: 'utf8', windowsHide: true, timeout: 60000 });
+    if (result.error?.code === 'ETIMEDOUT') throw new Error('OpenSSL took too long. Retry certificate setup on this host.');
     if (result.error) throw new Error('OpenSSL is required. In Termux run: pkg install openssl-tool. On other hosts install OpenSSL or set OPENSSL to its executable path.');
     if (result.status !== 0) throw new Error(`Certificate generation failed: ${result.stderr.trim()}`);
   }
@@ -60,12 +61,14 @@ async function main() {
     'extendedKeyUsage=serverAuth', 'subjectAltName=' + [...addresses].map(a => `${net.isIP(a) ? 'IP' : 'DNS'}:${a}`).join(',')];
   fs.writeFileSync(file('server.ext'), extensions.join('\n'));
   run(['req', '-new', '-newkey', 'rsa:2048', '-nodes', '-sha256', '-subj', '/CN=ShareMusic',
-    '-keyout', file('server-key.pem'), '-out', file('server.csr')]);
-  fs.chmodSync(file('server-key.pem'), 0o600);
+    '-keyout', file('server-key.pending.pem'), '-out', file('server.csr')]);
+  fs.chmodSync(file('server-key.pending.pem'), 0o600);
   run(['x509', '-req', '-in', file('server.csr'), '-CA', caCert, '-CAkey', caKey,
     '-set_serial', `0x${randomBytes(16).toString('hex')}`, '-days', '365', '-sha256',
-    '-extfile', file('server.ext'), '-out', file('server-cert.pem')]);
-  run(['verify', '-CAfile', caCert, file('server-cert.pem')]);
+    '-extfile', file('server.ext'), '-out', file('server-cert.pending.pem')]);
+  run(['verify', '-CAfile', caCert, file('server-cert.pending.pem')]);
+  fs.renameSync(file('server-key.pending.pem'), file('server-key.pem'));
+  fs.renameSync(file('server-cert.pending.pem'), file('server-cert.pem'));
   const authority = a => net.isIP(a) === 6 ? `[${a}]` : a;
   const links = [...addresses].map(a => `<li><strong>${a}</strong>: <a href="https://${authority(a)}:${port}/floor">Music</a> · <a href="https://${authority(a)}:${port}/voice">Voice</a> · <a href="https://${authority(a)}:${port}/admin">Admin</a></li>`).join('');
   const page = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -89,7 +92,11 @@ async function main() {
     }
     if (!['/', '/voice', '/floor', '/admin'].includes(route)) { res.writeHead(404); return res.end('Not found'); }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(page);
+    let selected;
+    try { selected = new URL(`http://${req.headers.host}`).hostname; } catch (_) {}
+    // Only a certificate-covered address may become the suggested destination.
+    const quickLinks = addresses.has(selected) ? `<h2>Open on this phone</h2><p><a href="https://${authority(selected)}:${port}/voice">Open Voice</a> · <a href="https://${authority(selected)}:${port}/floor">Open Music</a></p>` : '';
+    res.end(page.replace(`<ul>${links}</ul>`, `${quickLinks}<details><summary>All host addresses</summary><ul>${links}</ul></details>`));
   });
   const host = createHost({ tls: { key: fs.readFileSync(file('server-key.pem')), cert: fs.readFileSync(file('server-cert.pem')) } });
   const listen = (server, number) => new Promise((resolve, reject) => {

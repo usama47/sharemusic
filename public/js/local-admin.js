@@ -156,7 +156,7 @@ window.LocalShareMusicAdmin = (() => {
     for (const type of ['dragleave', 'drop']) $('upload-drop').addEventListener(type, event => { event.preventDefault(); $('upload-drop').classList.remove('is-dragging'); });
     $('upload-drop').addEventListener('drop', event => { if (event.dataTransfer.files.length) queueFiles(event.dataTransfer.files); });
     $('preview').addEventListener('play', () => { if (state.status === 'running') { $('preview').pause(); error('Stop or pause the room before previewing audio.'); } });
-    $('preview').addEventListener('error', () => error('This browser could not load the preview.'));
+      $('preview').addEventListener('error', () => { if (previewId) error('This browser could not load the preview.'); });
     setInterval(render, 250); loadTracks(); render();
   }
   return { start };

@@ -5,12 +5,12 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
   const members = new Map(), peers = new Map();
   const snapshot = () => ({ connected, joined, joining, micOn, message,
     needsAudio: joined && context?.state !== 'running',
-    peers: [...members.values()].map(member => ({ ...member, self: member.id === selfId, connection: member.id === selfId ? 'you' : peers.get(member.id)?.pc.connectionState || 'connecting' })) });
+    peers: [...members.values()].map(member => ({ ...member, self: member.id === selfId, connection: member.id === selfId ? 'you' : peers.get(member.id)?.failed ? 'retry needed' : peers.get(member.id)?.pc.connectionState || 'connecting' })) });
   const notify = () => onChange(snapshot());
   function closePeer(id) {
     const peer = peers.get(id);
     if (!peer) return;
-    peers.delete(id); peer.source?.disconnect(); peer.pc.close();
+    peers.delete(id); clearTimeout(peer.timer); peer.source?.disconnect(); peer.pc.close();
   }
   function leave(tellServer = true) {
     session++; clearTimeout(joinTimer);
@@ -64,6 +64,7 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
   function queue(peer, action) {
     peer.work = peer.work.then(async () => { if (peers.get(peer.id) === peer) await action(); }).catch(() => {
       if (peers.get(peer.id) !== peer) return;
+      peer.failed = true;
       message = 'A voice connection failed. Check Wi-Fi, then leave and rejoin voice.'; notify();
     });
   }
@@ -71,6 +72,10 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
     const pc = new window.RTCPeerConnection({ iceServers: [] });
     const peer = { id, pc, work: Promise.resolve(), candidates: [], source: null };
     peers.set(id, peer);
+    peer.timer = setTimeout(() => {
+      if (peers.get(id) !== peer || pc.connectionState === 'connected') return;
+      peer.failed = true; message = 'A friend could not connect. Check that the Wi-Fi allows devices to reach each other, then leave and rejoin.'; notify();
+    }, 20000);
     for (const track of stream.getAudioTracks()) pc.addTrack(track, stream);
     pc.onicecandidate = event => {
       if (event.candidate && peers.get(id) === peer) send({ type: 'voice:signal', to: id, candidate: event.candidate.toJSON() });
@@ -86,6 +91,10 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
     };
     pc.onconnectionstatechange = () => {
       if (peers.get(id) !== peer) return;
+      if (pc.connectionState === 'connected') {
+        clearTimeout(peer.timer); peer.failed = false;
+        message = 'Voice connected. Hold to talk or turn on open mic.';
+      }
       if (['failed', 'disconnected'].includes(pc.connectionState)) message = 'A friend’s voice connection dropped. Check Wi-Fi; rejoin if it does not recover.';
       notify();
     };
@@ -108,7 +117,8 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
           if (peers.get(peer.id) === peer) send({ type: 'voice:signal', to: peer.id, description: { type: peer.pc.localDescription.type, sdp: peer.pc.localDescription.sdp } });
         });
       }
-      message = members.size === 1 ? 'You’re in. Waiting for friends to join voice.' : 'Voice joined. Use headphones to reduce echo.';
+      const failed = [...peers.values()].some(peer => peer.failed || ['failed', 'disconnected'].includes(peer.pc.connectionState));
+      message = failed ? 'A voice connection needs attention. Leave and rejoin to retry.' : members.size === 1 ? 'You’re in. Waiting for friends to join voice.' : 'Voice joined. Use headphones to reduce echo.';
       notify();
     } else if (packet.type === 'voice:signal' && joined) {
       const peer = peers.get(packet.from);

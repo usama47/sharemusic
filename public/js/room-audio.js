@@ -25,13 +25,14 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
     const shouldPlay = connected && enabled && state.track && state.status === 'running' && state.startAt <= now() && current() < state.track.durationMs;
     if (!shouldPlay) {
       audio.pause(); seek(seconds, force);
-      if (enabled) status = state.status === 'ended' ? 'ended' : state.status === 'paused' ? 'paused' : audio.readyState >= 3 ? 'ready' : 'loading';
+      if (enabled) status = !connected ? 'loading' : state.status === 'ended' ? 'ended' : state.status === 'paused' ? 'paused' : audio.readyState >= 3 ? 'ready' : 'loading';
       notify(); return;
     }
     seek(seconds, force);
     const difference = seconds - audio.currentTime;
     const correction = Math.abs(difference) > 0.012 ? Math.max(-0.03, Math.min(0.03, difference * 0.5)) : 0;
     audio.playbackRate = state.playbackRate * (1 + correction);
+    if (!audio.paused) status = audio.readyState >= 3 ? 'playing' : 'loading';
     if (audio.paused && !playPending && audio.readyState >= 2) {
       playPending = true;
       const attempt = generation;
@@ -71,6 +72,7 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
     try {
       // Called directly from Start/Resume/Enable/Join gestures to unlock mobile audio.
       audio.muted = true;
+      if (audio.error) audio.load();
       await Promise.race([audio.play(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Audio enable timed out')), 5000); })]);
       if (attempt === generation) { enabled = true; status = 'ready'; }
     } catch (_) {
@@ -99,7 +101,7 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
     setConnected(value) {
       connected = value;
       if (!value) { generation++; audio.pause(); clearTimeout(startTimer); }
-      notify();
+      sync(true); schedule(); notify();
     }
   };
 };

@@ -45,7 +45,10 @@
   function hold(event) {
     if (openMic || !voice.snapshot().joined || event.button > 0) return;
     event.preventDefault(); holding = true;
-    if (event.pointerId != null) $('voice-hold').setPointerCapture(event.pointerId);
+    if (event.pointerId != null) {
+      try { $('voice-hold').setPointerCapture(event.pointerId); }
+      catch (_) { holding = false; return; }
+    }
     voice.setMic(true);
   }
   function release() { if (holding) { holding = false; voice.setMic(openMic); } }

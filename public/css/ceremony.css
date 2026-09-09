@@ -2,7 +2,7 @@
 body { margin: 0; min-height: 100vh; overflow: hidden; color: #f5f8f3; background: #071a11; font: 15px/1.5 "Work Sans", system-ui, sans-serif; }
 button { font: inherit; }
 .hidden { display: none !important; }
-.listener-screen { position: fixed; inset: 0; display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); text-align: center; }
+.listener-screen { position: fixed; inset: 0; overflow-y: auto; display: grid; place-items: center; padding: max(84px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); text-align: center; }
 .join-screen { background: radial-gradient(circle at 50% 20%, rgba(20, 115, 68, .45), transparent 48%), #071a11; }
 .listener-card { width: min(520px, 100%); }
 .eyebrow { color: #d8b866; font: 11px ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; }
@@ -33,6 +33,10 @@ h1 { margin: 12px 0; font: 600 clamp(34px, 9vw, 68px)/1.02 Georgia, serif; }
 .listener-time { display: flex; justify-content: space-between; width: min(430px, 82vw); margin-top: 8px; color: #a9bbae; font: 12px ui-monospace, monospace; }
 .pulse-mark { width: 90px; height: 90px; margin-bottom: 28px; border: 1px solid #d8b866; border-radius: 50%; box-shadow: 0 0 0 18px rgba(216, 184, 102, .08), 0 0 0 36px rgba(216, 184, 102, .04); animation: pulse 2.4s ease-in-out infinite; }
 .time { margin: 4px 0; color: #d8b866; font: 20px ui-monospace, monospace; }
-.reconnect { position: fixed; right: 14px; bottom: 14px; padding: 9px 12px; color: #071a11; background: #ffad98; border-radius: 7px; font-size: 12px; }
+.reconnect { position: fixed; z-index: 3; left: 14px; right: 14px; bottom: 120px; padding: 9px 12px; color: #071a11; background: #ffad98; border-radius: 7px; font-size: 12px; text-align: center; }
+.track-card > div { min-width: 0; }
+.playing-screen.is-paused .pulse-mark, .playing-screen.is-paused .live-dot { animation-play-state: paused; opacity: .45; }
+@media (max-height: 600px) { .pulse-mark { display: none; } .listener-screen h1 { font-size: 30px; } }
+@media (prefers-reduced-motion: reduce) { .pulse-mark, .live-dot { animation: none; } .listener-progress div { transition: none; } }
 @keyframes pulse { 50% { transform: scale(1.08); opacity: .65; } }
 @keyframes livePulse { 50% { opacity: .45; transform: scale(.8); } }

@@ -4,11 +4,12 @@ window.ShareMusicRoom = (() => {
   const monotonicStart = performance.now();
   const localNow = () => epoch + performance.now() - monotonicStart;
   function connect({ role, label, onMessage, onConnection = () => {}, onClock = () => {} }) {
-    let socket, retry, clockTimer, warmupTimer, closed = false, offset = 0, samples = [];
+    let socket, retry, clockTimer, warmupTimer, watchdog, closed = false, offset = 0, samples = [], lastResponse = 0, registered = false;
     const pending = new Set();
     const send = message => {
       if (socket?.readyState !== WebSocket.OPEN) return false;
-      socket.send(JSON.stringify(message)); return true;
+      try { socket.send(JSON.stringify(message)); return true; }
+      catch (_) { socket.close(); return false; }
     };
     function ping() {
       const t0 = localNow();
@@ -17,20 +18,31 @@ window.ShareMusicRoom = (() => {
       send({ type: 'clock:sync', t0 });
     }
     function open() {
+      if (closed) return;
+      registered = false; lastResponse = localNow();
       socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/local-ws`);
+      const active = socket;
+      watchdog = setInterval(() => {
+        if (localNow() - lastResponse <= 12000) return;
+        clearInterval(clockTimer); clearInterval(warmupTimer); clearInterval(watchdog);
+        socket = null; active.close(); onConnection(false);
+        if (!closed) retry = setTimeout(open, 1500);
+      }, 2000);
       socket.onopen = () => {
+        if (socket !== active || closed) return;
         samples = []; pending.clear();
         send({ type: 'register', role, label });
         ping(); clockTimer = setInterval(ping, 2000);
         // Gather several clock samples before the usual three-second start.
         let warmups = 0;
         warmupTimer = setInterval(() => { ping(); if (++warmups === 4) clearInterval(warmupTimer); }, 200);
-        onConnection(true);
       };
       socket.onmessage = event => {
+        if (socket !== active || closed) return;
         let message;
         try { message = JSON.parse(event.data); } catch (_) { return; }
         if (!message || typeof message !== 'object') return;
+        lastResponse = localNow();
         if (message.type === 'clock:sync' && pending.delete(message.t0) && Number.isFinite(message.serverTime)) {
           const now = localNow(), rtt = now - message.t0;
           if (rtt < 0 || rtt > 10000) return;
@@ -41,15 +53,21 @@ window.ShareMusicRoom = (() => {
         }
         if (message.type === 'state' && Number.isFinite(message.state?.serverNow) && !samples.length) offset = message.state.serverNow - localNow();
         onMessage(message);
+        // Apply the fresh snapshot before allowing media or controls to resume.
+        if (message.type === 'state' && !registered) { registered = true; onConnection(true); }
       };
       socket.onclose = () => {
-        clearInterval(clockTimer); clearInterval(warmupTimer); pending.clear(); onConnection(false);
+        if (socket !== active) return;
+        clearInterval(clockTimer); clearInterval(warmupTimer); clearInterval(watchdog); pending.clear(); onConnection(false);
         if (!closed) retry = setTimeout(open, 1500);
       };
-      socket.onerror = () => socket.close();
+      socket.onerror = () => active.close();
     }
     open();
-    return { send, now: () => localNow() + offset, close() { closed = true; clearTimeout(retry); clearInterval(clockTimer); clearInterval(warmupTimer); socket.close(); } };
+    function close() { closed = true; clearTimeout(retry); clearInterval(clockTimer); clearInterval(warmupTimer); clearInterval(watchdog); onConnection(false); socket?.close(); }
+    window.addEventListener('pagehide', close);
+    window.addEventListener('pageshow', event => { if (event.persisted && closed) { closed = false; open(); } });
+    return { send, now: () => localNow() + offset, close };
   }
   function elapsed(state, now) {
     const position = Number(state.positionMs ?? state.pausedAtMs ?? 0);

@@ -1,5 +1,15 @@
 # ShareMusic review fixes
 
+## September 9 review
+
+- Reconnect applies the new room snapshot before enabling playback and controls, preventing stale music from restarting. A client watchdog detects silent connections, releases voice and pauses music, then reconnects. Navigation closes the transport; returning from the browser back/forward cache reconnects with old-socket callbacks ignored.
+- Audio retries reload failed media. Playback status recovers after buffering, and disconnected audio is no longer reported as ready. Empty preview removal no longer produces a false load error.
+- Voice peers that cannot connect within 20 seconds show a retry status. Signaling failures remain visible across microphone roster updates; peer timeout resources are cleared when leaving. Failed pointer capture cannot leave hold-to-talk active.
+- Listener screens scroll on short displays, reserve space for navigation, and keep the reconnect notice above shared controls. Paused/disconnected animation and text reflect the playback state; reduced-motion preferences are respected.
+- HTTPS enrollment suggests links using the phone's current certificate-covered host address. Other addresses are collapsed. Certificate generation validates DNS labels, has a timeout, and stages leaf files until verification succeeds. The regular server also tolerates Termux address-discovery restrictions.
+
+Validation: runtime JavaScript syntax checks and whitespace checks passed. No tests were written or run, per user preference. Mobile certificate enrollment, real voice connections, physical speaker alignment and visual behavior still require device testing; this review does not establish zero latency or background reliability.
+
 Baseline: `6c6251b` (remove login panel and update caching). That commit was inspected before editing. Direct `/admin` and `/floor` behavior is preserved. No commit, push, or deployment was performed.
 
 ## Finding-by-finding disposition

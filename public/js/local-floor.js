@@ -13,6 +13,7 @@ window.LocalShareMusicFloor = (() => {
     function render() {
       const sound = player.snapshot();
       const current = elapsed(state, now());
+      $('playing-screen').classList.toggle('is-paused', state.status !== 'running' || !connected);
       $('waiting-track').textContent = state.track?.name || 'Waiting for a song';
       $('waiting-status').textContent = state.track ? 'The host will start playback soon.' : 'The host will choose a song soon.';
       $('playing-track').textContent = state.track?.name || 'ShareMusic';
@@ -32,7 +33,7 @@ window.LocalShareMusicFloor = (() => {
         return show('countdown-screen');
       }
       show('playing-screen');
-      $('playing-status').textContent = state.status === 'paused' ? 'Room playback is paused.' : sound.status === 'loading' ? 'Buffering audio…' : `Playing with the room · ${state.playbackRate}×`;
+      $('playing-status').textContent = !connected ? 'Audio paused while reconnecting…' : state.status === 'paused' ? 'Room playback is paused.' : sound.status === 'loading' ? 'Buffering audio…' : `Playing with the room · ${state.playbackRate}×`;
     }
     player = window.ShareMusicAudio({ audio: $('audio'), now, onChange(sound) {
       const payload = { type: 'listener:status', trackId: sound.trackId, joined: sound.enabled, ready: sound.ready, status: sound.status };
