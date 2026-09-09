@@ -5,7 +5,7 @@ button, input { font: inherit; }
 .admin-shell { width: min(1180px, 100%); margin: 0 auto; padding: clamp(18px, 4vw, 42px) clamp(14px, 4vw, 28px) 60px; }
 .panel { background: linear-gradient(145deg, rgba(16, 49, 31, .98), rgba(9, 35, 22, .98)); border: 1px solid rgba(212, 184, 104, .18); border-radius: 16px; padding: clamp(17px, 3vw, 26px); box-shadow: 0 18px 55px rgba(0, 0, 0, .14); }
 .login-panel { width: min(440px, 100%); margin: 10vh auto; }
-.topbar { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 26px; }
+.topbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 26px; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 10px; font: 600 clamp(28px, 5vw, 46px)/1.05 Georgia, serif; }
 h2 { margin: 0; font: 600 21px/1.15 Georgia, serif; }

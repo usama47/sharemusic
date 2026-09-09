@@ -1,5 +1,13 @@
 # ShareMusic review fixes
 
+## Setup from the default pages
+
+Added Setup & help to admin, floor and voice navigation. The shared help page includes role-specific music instructions, guided voice setup, microphone permission recovery, network/audio troubleshooting and a listener invite link with a manual-copy fallback on HTTP. Loopback addresses cannot be copied as invitations. Certificate setup has return navigation and separate platform instructions; listener setup no longer lists dashboard links. Header wrapping and voice/help box sizing accommodate the new controls. Syntax and whitespace checks passed; no tests added or run.
+
+## Single-command startup
+
+`npm start` now starts one shared room on HTTP port 3000 and HTTPS port 3001. Existing HTTP music/admin URLs work, and `/setup` on the HTTP app provides phone enrollment. HTTP Voice navigation leads to setup; the secure Voice link preserves dashboard return navigation. Both servers share uploads, playback state, signaling and shutdown. Existing dev/local-host commands are aliases; `start:http` retains the original standalone server/custom TLS entrypoint. Occupied ports get an actionable stop-old-server message. OpenSSL remains a first-time host prerequisite and certificate trust remains once per phone. Syntax and whitespace checks only; no tests run.
+
 ## September 9 review
 
 - Reconnect applies the new room snapshot before enabling playback and controls, preventing stale music from restarting. A client watchdog detects silent connections, releases voice and pauses music, then reconnects. Navigation closes the transport; returning from the browser back/forward cache reconnects with old-socket callbacks ignored.

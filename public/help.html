@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShareMusic setup &amp; help</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/voice.css">
+</head>
+<body>
+  <main class="voice-shell">
+    <nav aria-label="App navigation"><a id="help-back" href="/floor">Back to music</a><a id="help-voice" href="/voice">Voice chat</a></nav>
+    <h1>Setup &amp; help</h1>
+    <p>Keep everyone on the same Wi-Fi or hotspot. Start the host once with <code>npm start</code> and keep it running.</p>
+    <section class="voice-card">
+      <h2>1. Listen together</h2>
+      <p id="music-help">Open the music page and tap <strong>Join and enable audio</strong>. The host chooses and starts the song. Your Pause / Resume button changes playback for everyone.</p>
+      <p>Turn up media volume. If audio is blocked, tap Join again; on the dashboard, tap Enable audio on this device. Bluetooth speakers can add delay.</p>
+      <a id="help-music" href="/floor">Open music</a>
+    </section>
+    <section class="voice-card">
+      <h2>2. Set up voice once</h2>
+      <p>Each phone needs to trust this host’s certificate. Use the guided setup below to download it and follow the steps for your phone. Then open Voice, enter your name, tap Join voice and allow microphone access.</p>
+      <p><a id="help-setup" href="/setup">Open guided voice setup</a></p>
+      <p>The mic starts muted. Hold to talk, or turn on open mic for hands-free conversation. Enable sound if you cannot hear friends. Leaving releases the mic; hiding the page mutes it.</p>
+      <p>Opening voice leaves music playback on this device. It does not stop the room’s music.</p>
+    </section>
+    <section class="voice-card">
+      <h2>Invite a friend</h2>
+      <p>Share this music link with phones on your network. They can reach voice setup from its Setup &amp; help button.</p>
+      <label for="room-link">Music link</label><input id="room-link" readonly>
+      <p id="share-note" class="small" role="status">Select the link to copy it from your browser.</p>
+      <button id="copy-link" type="button">Copy music link</button>
+    </section>
+    <section class="voice-card">
+      <h2>Need a hand?</h2>
+      <details><summary>Microphone permission was denied</summary><p>Open the browser’s site settings beside the address bar and allow Microphone. Also check microphone permission for the browser in your phone’s settings. Return to Voice and tap Join again.</p></details>
+      <details><summary>A certificate warning appears</summary><p>Return to guided voice setup and finish installing and trusting the certificate. Check that the phone’s date and time are correct. If the host changed Wi-Fi, restart its app and use its current address.</p></details>
+      <details><summary>Connecting, buffering, or friends cannot hear me</summary><p>Keep the host running and all phones on the same network. Check the mic indicator and your volume. Leave and rejoin voice. Guest Wi-Fi can block connections between phones; use a network that lets devices communicate.</p></details>
+      <details><summary>Does this need internet? Will songs survive a restart?</summary><p>After dependencies and certificates are set up, the app uses your local network. Keep the server running to listen or talk. Uploaded songs stay on the host across restarts; the current playback and voice session reset.</p></details>
+    </section>
+  </main>
+  <script src="/js/help.js"></script>
+</body>
+</html>

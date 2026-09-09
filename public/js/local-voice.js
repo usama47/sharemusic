@@ -3,6 +3,7 @@
   if (/(?:^|[?&])from=admin(?:&|$)/.test(location.search || '')) {
     $('voice-back').setAttribute('href', '/admin');
     $('voice-back').textContent = 'Back to dashboard';
+    $('voice-help').setAttribute('href', '/help.html?from=admin');
   }
   let room, voice, holding = false, openMic = false;
   const supported = window.isSecureContext && navigator.mediaDevices?.getUserMedia && window.RTCPeerConnection && (window.AudioContext || window.webkitAudioContext);

@@ -9,7 +9,7 @@ const https = require('https');
 const { WebSocketServer } = require('ws');
 const { createVoiceRoom } = require('./voice-room');
 
-function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls } = {}) {
+function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHandler } = {}) {
   const dataDir = path.join(storageRoot, 'data');
   const mediaDir = path.join(storageRoot, 'local-media');
   const tracksFile = path.join(dataDir, 'local-tracks.json');
@@ -28,6 +28,7 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls } = {}) 
   const devices = new Map();
   const app = express();
   const server = tls ? https.createServer(tls, app) : http.createServer(app);
+  const httpServer = tls && setupHandler ? http.createServer(app) : null;
   const wss = new WebSocketServer({ noServer: true, maxPayload: 32768 });
   let endTimer;
   function elapsedMs() {
@@ -71,6 +72,13 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls } = {}) 
   app.use('/local-media', express.static(mediaDir, { maxAge: '1h' }));
   // Keep code fresh, as requested by the direct-dashboard baseline commit.
   app.use((req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
+  if (setupHandler) {
+    app.all(['/setup', '/sharemusic-ca.crt'], setupHandler);
+    app.get('/voice', (req, res, next) => {
+      if (!req.socket.encrypted) return res.redirect(req.query.from === 'admin' ? '/setup?from=admin' : '/setup');
+      next();
+    });
+  }
   app.get('/', (req, res) => res.redirect('/floor'));
   app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public/admin.html')));
   app.get('/floor', (req, res) => res.sendFile(path.join(__dirname, 'public/floor.html')));
@@ -169,17 +177,20 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls } = {}) 
     }
   }, 15000);
   heartbeat.unref();
-  server.on('upgrade', (request, socket, head) => {
+  const upgrade = (request, socket, head) => {
     if (request.url !== '/local-ws') return socket.destroy();
     wss.handleUpgrade(request, socket, head, client => wss.emit('connection', client, request));
-  });
+  };
+  server.on('upgrade', upgrade);
+  httpServer?.on('upgrade', upgrade);
   async function close() {
     clearInterval(heartbeat); clearTimeout(endTimer);
     for (const socket of wss.clients) socket.terminate();
     await new Promise(resolve => wss.close(resolve));
     if (server.listening) await new Promise(resolve => server.close(resolve));
+    if (httpServer?.listening) await new Promise(resolve => httpServer.close(resolve));
   }
-  return { server, close };
+  return { server, httpServer, close };
 }
 if (require.main === module) {
   if (!!process.env.TLS_KEY !== !!process.env.TLS_CERT) throw new Error('Set both TLS_KEY and TLS_CERT to enable HTTPS');

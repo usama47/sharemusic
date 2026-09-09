@@ -10,7 +10,7 @@
 </head>
 <body>
   <main class="voice-shell">
-    <nav><a id="voice-back" href="/floor">Back to music</a></nav>
+    <nav aria-label="App navigation"><a id="voice-back" href="/floor">Back to music</a><a id="voice-help" href="/help.html">Setup &amp; help</a></nav>
     <p class="eyebrow">SHAREMUSIC / VOICE</p>
     <h1>Stay in touch.</h1>
     <p>Talk with friends on the same Wi-Fi or hotspot. Up to 8 people.</p>
@@ -18,7 +18,7 @@
       <label for="voice-name">Your name</label>
       <input id="voice-name" maxlength="40" placeholder="Friend" autocomplete="nickname">
       <p id="voice-status" role="status" aria-live="polite">Connecting…</p>
-      <p id="voice-requirement" class="notice" hidden>Set up voice once: on the host run <code>npm run local-host:https</code>, then open the Phone setup link printed in its terminal. Install the host’s certificate and open its HTTPS Voice link.</p>
+      <p id="voice-requirement" class="notice" hidden>Start the host with <code>npm start</code>, then open its Voice setup link once on this phone. Install the host’s certificate and open its HTTPS Voice link.</p>
       <div class="actions">
         <button id="voice-join" disabled>Join voice</button>
         <button id="voice-leave" disabled>Leave voice</button>

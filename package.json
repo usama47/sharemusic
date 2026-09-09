@@ -4,11 +4,12 @@
   "description": "Single-room synchronized music server with a direct dashboard and browser listeners.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node scripts/https-host.js",
     "test": "node --test",
     "verify-demo": "node scripts/verify-demo.js",
-    "dev": "node server.js",
-    "local-host": "node server.js",
+    "dev": "node scripts/https-host.js",
+    "local-host": "node scripts/https-host.js",
+    "start:http": "node server.js",
     "local-host:https": "node scripts/https-host.js"
   },
   "dependencies": {

@@ -4,6 +4,8 @@ One shared music room, with a direct dashboard at `/admin` and a listener at `/f
 
 ## Run
 
+The admin, listener and voice pages all have **Setup & help** navigation. It provides role-specific music instructions, guided phone certificate setup, microphone/audio troubleshooting, and a copyable listener invitation link. Listener help returns to the music page; dashboard help returns to the dashboard. The voice setup page has separate Android/iPhone steps and an Open Voice link for the current host, so participants do not need to edit protocols or port numbers.
+
 Install Node 18 or newer, then:
 
 ```sh
@@ -11,7 +13,7 @@ npm install
 npm start
 ```
 
-`npm run dev` and `npm run local-host` start the same server. `PORT` defaults to 3000. Startup prints interface addresses; choose one reachable by listeners. `127.0.0.1` is only for the server device. `/` redirects to `/floor`.
+`npm start` launches HTTP music on port 3000 and HTTPS voice on port 3001 in one process, sharing one room and library. `npm run dev`, `npm run local-host`, and `npm run local-host:https` are aliases. `PORT` defaults to 3000; `HTTPS_PORT` defaults to 3001. Startup prints interface addresses; choose one reachable by listeners. `127.0.0.1` is only for the server device. `/` redirects to `/floor`.
 
 Open `/admin`, upload a supported audio file, and select a track. Listeners open `/floor` and tap Join when a track is available. The dashboard shows each listener's reported loading, ready, playing, paused, blocked, or error status. Readiness means audio is enabled and the browser has future media data; it does not mean the entire file is downloaded. Start is a host decision, not a barrier waiting for every listener.
 
@@ -58,24 +60,24 @@ Voice uses a WebRTC peer connection between each pair and local WebSocket signal
 
 ### HTTPS on Termux and other LAN hosts
 
-**An HTTP LAN URL cannot request microphone access.** The host can test on `http://127.0.0.1:3000/voice`, because localhost is a browser-trusted development origin. Other phones need an HTTPS address whose certificate they trust. Changing `http` to `https` alone does not enable TLS, and bypassing a certificate warning is not a deployment solution.
+**An HTTP LAN URL cannot request microphone access.** The optional HTTP-only command `npm run start:http` permits host-only voice on localhost; normal startup guides voice users through `/setup`. Other phones need an HTTPS address whose certificate they trust. Changing `http` to `https` alone does not enable TLS, and bypassing a certificate warning is not a deployment solution.
 
 For the included offline HTTPS setup, stop the old server with Ctrl+C, then run in Termux:
 
 ```sh
 pkg install openssl-tool
-npm run local-host:https
+npm start
 ```
 
-The app runs on **HTTPS port 3000**, with a **phone setup page on HTTP port 3001**. Open the printed Phone setup link on each phone. It provides the public certificate, Android/iPhone installation instructions, and HTTPS Music/Voice/Admin links. Install and trust this host's certificate once on each participating phone (including the host phone), then open the HTTPS Voice link and allow the microphone. Browsers cannot grant a LAN HTTP microphone exemption for educational projects.
+Music and admin work immediately at **http://HOST:3000/floor** and **http://HOST:3000/admin**. Voice uses **https://HOST:3001/voice**. Open **http://HOST:3000/setup** once on each phone for microphone setup. Port 3001 uses HTTPS, not HTTP. Both ports start together; do not run a second server. It provides the public certificate, Android/iPhone installation instructions, and HTTPS Music/Voice/Admin links. Install and trust this host's certificate once on each participating phone (including the host phone), then open the HTTPS Voice link and allow the microphone. Browsers cannot grant a LAN HTTP microphone exemption for educational projects.
 
 Some Android versions prevent Termux from discovering interface addresses. If only localhost is printed, or the desired address is missing, supply your current Wi-Fi/hotspot IP explicitly:
 
 ```sh
-npm run local-host:https -- 10.10.11.192
+npm start -- 10.10.11.192
 ```
 
-Use your actual reachable IP, not necessarily the example. Additional IPs or DNS names can be supplied as more arguments or comma-separated `HTTPS_HOSTS`. Restart this command after a network/address change. `PORT` and `SETUP_PORT` override 3000 and 3001. Both must be reachable from the phones. On Windows/macOS install OpenSSL first; `OPENSSL` can specify its executable path.
+Use your actual reachable IP, not necessarily the example. Additional IPs or DNS names can be supplied as more arguments or comma-separated `HTTPS_HOSTS`. Restart this command after a network/address change. `PORT` and `HTTPS_PORT` override 3000 and 3001; the old `SETUP_PORT` option is no longer used. Both must be reachable from the phones. On Windows/macOS install OpenSSL first; `OPENSSL` can specify its executable path.
 
 The launcher generates a local CA and a server certificate with matching address SANs. It preserves the CA in the Git-ignored `certs/` directory and reissues the server certificate at launch. Keep this directory on the host across updates so enrolled phones retain trust. Only the public CA certificate is downloadable; private keys are never served. Check the certificate fingerprint against the host terminal before trusting it. Trusting this CA allows its holder to issue certificates your phone accepts, so keep its keys private and remove its trust/profile from phones when no longer needed. Trust installation is manual; the app does not modify device trust stores. No internet service is needed after installing dependencies and enrolling phones.
 
@@ -84,7 +86,7 @@ Android: choose **CA certificate** in the system's Install a certificate setting
 If you already have a trusted PEM private key and certificate chain valid for the hostname/IP your friends use, the original direct TLS option is also available:
 
 ```sh
-TLS_KEY="$PWD/certs/voice-key.pem" TLS_CERT="$PWD/certs/voice-cert.pem" npm run local-host
+TLS_KEY="$PWD/certs/voice-key.pem" TLS_CERT="$PWD/certs/voice-cert.pem" npm run start:http
 ```
 
 Keep the private key on the host. An existing trusted HTTPS reverse proxy that forwards `/local-ws` is another option. The HTTPS launcher uses the same persistent music library as the HTTP server; changing protocol does not delete uploads. Run only one music server at a time.

@@ -1,4 +1,9 @@
-body { min-height: 100vh; height: auto; font: 16px/1.5 system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { min-height: 100vh; height: auto; margin: 0; font: 16px/1.5 system-ui, sans-serif; }
+summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+details + details { border-top: 1px solid #39533d; }
+code { overflow-wrap: anywhere; }
+a, button, summary { touch-action: manipulation; }
 .voice-shell { max-width: 620px; margin: auto; padding: 24px 20px max(28px, env(safe-area-inset-bottom)); }
 nav, .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 nav { justify-content: space-between; margin-bottom: 28px; }
