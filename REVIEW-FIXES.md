@@ -1,5 +1,11 @@
 # ShareMusic review fixes
 
+## September 21: listener playback interruptions
+
+The previous 80 ms seek threshold combined with a 50 ms correction loop could repeatedly invalidate buffered playback on slower listener devices. Replaced it with a 250 ms loop and gentle ±2% rate correction, ignoring timing noise under 80 ms. Automatic seeks now require a sustained >1.5-second error, a buffered destination, stable media readiness and an eight-second cooldown. No routine correction seeks while buffering or already seeking. Explicit start/pause/stop/seek/join alignment remains; deferred explicit alignment retries when media becomes ready. Visibility changes no longer force seeks. Seek completion resumes synchronization immediately rather than waiting for the next interval.
+
+Validation: JavaScript syntax and diff whitespace checks only, respecting the request not to write/run tests. This addresses an identified interruption mechanism; physical phone playback and network buffering still need confirmation.
+
 ## Setup from the default pages
 
 Added Setup & help to admin, floor and voice navigation. The shared help page includes role-specific music instructions, guided voice setup, microphone permission recovery, network/audio troubleshooting and a listener invite link with a manual-copy fallback on HTTP. Loopback addresses cannot be copied as invitations. Certificate setup has return navigation and separate platform instructions; listener setup no longer lists dashboard links. Header wrapping and voice/help box sizing accommodate the new controls. Syntax and whitespace checks passed; no tests added or run.

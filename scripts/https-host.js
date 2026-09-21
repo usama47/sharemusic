@@ -15,9 +15,14 @@ async function main() {
     throw new Error('PORT and HTTPS_PORT must be different ports between 1 and 65535.');
   }
   const addresses = new Set(['127.0.0.1', 'localhost']);
+  const networkChoices = [];
+  let preferred;
   try {
-    for (const entries of Object.values(os.networkInterfaces())) {
-      for (const entry of entries || []) if (entry.family === 'IPv4' && !entry.internal) addresses.add(entry.address);
+    for (const [name, entries] of Object.entries(os.networkInterfaces())) {
+      for (const entry of entries || []) if (entry.family === 'IPv4' && !entry.internal) {
+        addresses.add(entry.address);
+        networkChoices.push({ address: entry.address, rank: /wlan|wi-fi|wifi|ap\d|bridge/i.test(name) ? 0 : /eth|en\d/i.test(name) ? 1 : 2 });
+      }
     }
   } catch (_) { console.log('Automatic address discovery unavailable; supply your Wi-Fi/hotspot IP after the command.'); }
   for (const value of [...process.argv.slice(2), ...(process.env.HTTPS_HOSTS || '').split(',')]) {
@@ -28,6 +33,7 @@ async function main() {
       throw new Error(`Invalid HTTPS hostname/IP: ${address}`);
     }
     addresses.add(address);
+    if (!preferred && address !== 'localhost' && !address.startsWith('127.')) preferred = address;
   }
   const openssl = process.env.OPENSSL || 'openssl';
   function run(args) {
@@ -109,12 +115,15 @@ async function main() {
     if (error.code === 'EADDRINUSE') throw new Error(`Port ${error.port} is already in use. Stop the old ShareMusic command with Ctrl+C, then run npm start once.`);
     throw error;
   }
-  console.log(`\nShareMusic HTTPS is running. Certificate SHA-256:\n${root.fingerprint256}\n`);
-  for (const address of addresses) {
-    console.log(`Music: http://${authority(address)}:${setupPort}/floor\nAdmin: http://${authority(address)}:${setupPort}/admin\nVoice setup (once per phone): http://${authority(address)}:${setupPort}/setup\nVoice: https://${authority(address)}:${port}/voice\n`);
-  }
-  if (addresses.size === 2) console.log('For other phones, supply your host IP, for example: npm start -- 192.168.43.1');
-  console.log('Keep certs/ on this host so phones retain trust. Never share root-key.pem or server-key.pem. Ctrl+C stops both servers.');
+  preferred ||= networkChoices.sort((a, b) => a.rank - b.rank)[0]?.address;
+  const base = `http://${authority(preferred || '127.0.0.1')}:${setupPort}`;
+  console.log(`\nShareMusic is ready.\n\nYour dashboard: ${base}/admin`);
+  if (preferred) console.log(`Friends join here (suggested): ${base}/floor`);
+  else console.log('No network address detected. To connect friends, use: npm start -- YOUR_WIFI_IP');
+  console.log('\nUse Voice chat and Setup & help inside the app.');
+  if (networkChoices.length > 1) console.log('If friends cannot connect, find other addresses in guided voice setup → Other host addresses.');
+  console.log(`\nCertificate fingerprint (for phone setup):\n${root.fingerprint256}`);
+  console.log('\nKeep certs/ private. Ctrl+C stops the app.');
   let stopping = false;
   async function stop() {
     if (stopping) return;
