@@ -23,13 +23,18 @@ window.LocalShareMusicAdmin = (() => {
       if (document.activeElement !== $('seek')) $('seek').value = current;
       $('speed').value = String(state.playbackRate);
       const sound = player.snapshot();
+      window.ShareMusicTools?.update({ connected, state, sound });
       $('start').disabled = sound.enabling || !connected || !state.track || !['idle', 'ended'].includes(state.status);
-      $('pause').disabled = !connected || !['running', 'paused'].includes(state.status);
+      $('pause').disabled = !connected || !['running', 'paused', 'buffering'].includes(state.status);
       $('pause').textContent = state.status === 'paused' ? 'Resume' : 'Pause';
-      $('stop').disabled = !connected || !['running', 'paused'].includes(state.status);
+      $('stop').disabled = !connected || !['running', 'paused', 'buffering'].includes(state.status);
       $('seek').disabled = !connected || !state.track;
       $('speed').disabled = !connected;
-      $('message').textContent = !connected ? 'Reconnecting to the room…' : countdown ? 'Playback starts after the countdown.' : state.status === 'running' ? 'Playing for the room.' : state.status === 'paused' ? 'Playback is paused.' : state.track ? 'Review listener readiness, then press Start.' : 'Upload an audio file to begin.';
+      $('message').textContent = !connected ? 'Reconnecting to the room…' : state.bufferNotice || (state.status === 'buffering' ? 'Waiting for listeners to join and buffer. You can start now or Stop to cancel.' : countdown ? 'Playback starts after the countdown.' : state.status === 'running' ? 'Playing for the room.' : state.status === 'paused' ? 'Playback is paused.' : state.track ? 'Review listener readiness, then press Start.' : 'Upload an audio file to begin.');
+      $('start-now').hidden = state.status !== 'buffering'; $('start-now').disabled = !connected;
+      $('sync-mode').value = state.syncMode || 'smooth'; $('sync-mode').disabled = !connected;
+      $('wait-buffers').checked = !!state.waitForBuffers; $('wait-buffers').disabled = !connected;
+      $('auto-next').checked = !!state.autoNext; $('auto-next').disabled = !connected;
       $('preview').hidden = !state.track;
       $('enable-audio').hidden = !state.track || sound.enabled;
       $('enable-audio').disabled = !connected || sound.enabling;
@@ -37,9 +42,16 @@ window.LocalShareMusicAdmin = (() => {
     }
     function renderTracks() {
       $('track-count').textContent = `${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`;
-      const active = ['running', 'paused'].includes(state.status);
+      const active = ['running', 'paused', 'buffering'].includes(state.status);
       $('tracks').innerHTML = tracks.length ? tracks.map(track => `<div class="track ${state.track?.id === track.id ? 'selected' : ''}"><button class="track-select" data-id="${escapeHtml(track.id)}" ${!connected || active ? 'disabled' : ''}><span>${escapeHtml(track.name)}</span><small>${format(track.durationMs)}</small></button><button class="delete-track" data-id="${escapeHtml(track.id)}" ${active && state.track?.id === track.id ? 'disabled' : ''} title="Delete ${escapeHtml(track.name)}">×</button></div>`).join('') : '<p class="muted">Add audio files from this device.</p>';
-      $('tracks').querySelectorAll('.track-select').forEach(button => button.onclick = () => send({ type: 'select-track', trackId: button.dataset.id }));
+      $('tracks').querySelectorAll('.track-select').forEach(button => {
+        button.onclick = () => send({ type: 'select-track', trackId: button.dataset.id });
+        const queue = document.createElement('button'); queue.className = 'queue-track'; queue.textContent = 'Queue';
+        queue.disabled = !connected || (state.queue?.length || 0) >= 100;
+        queue.setAttribute('aria-label', `Queue ${tracks.find(track => track.id === button.dataset.id)?.name || 'track'}`);
+        queue.onclick = () => send({ type: 'queue:add', trackId: button.dataset.id });
+        button.parentElement.insertBefore(queue, button.nextSibling);
+      });
       $('tracks').querySelectorAll('.delete-track').forEach(button => button.onclick = async () => {
         try {
           const response = await fetch(`/local/tracks/${encodeURIComponent(button.dataset.id)}`, { method: 'DELETE' });
@@ -47,6 +59,22 @@ window.LocalShareMusicAdmin = (() => {
           if (!response.ok) throw new Error(result.error || 'Delete failed');
           error(''); await loadTracks();
         } catch (failure) { error(failure.message); }
+      });
+    }
+    function renderQueue() {
+      $('queue-list').replaceChildren();
+      const queue = state.queue || [];
+      if (!queue.length) { const empty = document.createElement('li'); empty.textContent = 'No songs queued.'; $('queue-list').appendChild(empty); }
+      queue.forEach((id, index) => {
+        const item = document.createElement('li'), name = document.createElement('span');
+        name.textContent = tracks.find(track => track.id === id)?.name || 'Loading track…'; item.appendChild(name);
+        for (const [label, action, direction] of [['↑', 'queue:move', -1], ['↓', 'queue:move', 1], ['Remove', 'queue:remove', 0]]) {
+          const button = document.createElement('button'); button.textContent = label;
+          button.setAttribute('aria-label', `${direction < 0 ? 'Move up' : direction > 0 ? 'Move down' : 'Remove'} ${name.textContent}`);
+          button.disabled = !connected || direction < 0 && index === 0 || direction > 0 && index === queue.length - 1;
+          button.onclick = () => send({ type: action, index, direction }); item.appendChild(button);
+        }
+        $('queue-list').appendChild(item);
       });
     }
     function applyState(next) {
@@ -60,12 +88,12 @@ window.LocalShareMusicAdmin = (() => {
       // Preview is an explicit local audition, not an extra synchronized player.
       if (state.status === 'running') $('preview').pause();
       player.setState(state);
-      render(); renderTracks();
+      render(); renderTracks(); renderQueue();
     }
     function renderDevices(message) {
       const ready = message.devices.filter(device => device.ready && device.trackId === state.track?.id).length;
       $('device-count').textContent = `${ready}/${message.count} ready`;
-      $('devices').innerHTML = message.count ? message.devices.map(device => `<div class="device"><span class="dot ${device.ready ? 'dot-ok' : ''}"></span><span>${escapeHtml(device.label)}</span><small>${escapeHtml(device.status)}</small></div>`).join('') : '<p class="muted">No listeners connected.</p>';
+      $('devices').innerHTML = message.count ? message.devices.map(device => `<div class="device"><span class="dot ${device.ready ? 'dot-ok' : ''}"></span><span>${escapeHtml(device.label)}</span><small>${escapeHtml(device.status)} · ${Math.floor((device.bufferedMs || 0) / 1000)}s buffered</small></div>`).join('') : '<p class="muted">No listeners connected.</p>';
     }
     async function loadTracks() {
       try {
@@ -129,10 +157,10 @@ window.LocalShareMusicAdmin = (() => {
     }
     player = window.ShareMusicAudio({ audio: $('room-audio'), now: () => room?.now() ?? Date.now(), onChange: () => render() });
     room = window.ShareMusicRoom.connect({ role: 'admin', label: 'Dashboard',
-      onConnection(value) { connected = value; player.setConnected(value); $('connection').textContent = value ? 'Room connected' : 'Reconnecting…'; render(); renderTracks(); if (value) error(''); },
+      onConnection(value) { connected = value; player.setConnected(value); $('connection').textContent = value ? 'Room connected' : 'Reconnecting…'; render(); renderTracks(); renderQueue(); if (value) error(''); },
       onMessage(message) {
         if (message.type === 'state') applyState(message.state);
-        if (message.type === 'tracks') { tracks = message.tracks; renderTracks(); }
+        if (message.type === 'tracks') { tracks = message.tracks; renderTracks(); renderQueue(); }
         if (message.type === 'devices') renderDevices(message);
       }, onClock() { player.refresh(); render(); }
     });
@@ -146,6 +174,10 @@ window.LocalShareMusicAdmin = (() => {
       if (version === stateVersion && connected) send({ type });
     }
     $('start').onclick = () => startOrResume('start');
+    $('start-now').onclick = () => send({ type: 'start-now' });
+    $('sync-mode').onchange = () => send({ type: 'room:options', syncMode: $('sync-mode').value });
+    $('wait-buffers').onchange = () => send({ type: 'room:options', waitForBuffers: $('wait-buffers').checked });
+    $('auto-next').onchange = () => send({ type: 'room:options', autoNext: $('auto-next').checked });
     $('pause').onclick = () => state.status === 'paused' ? startOrResume('resume') : send({ type: 'pause' });
     $('enable-audio').onclick = () => { $('preview').pause(); return player.enable(); };
     $('stop').onclick = () => send({ type: 'stop' });

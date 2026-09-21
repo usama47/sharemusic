@@ -6,6 +6,9 @@
     $('voice-help').setAttribute('href', '/help.html?from=admin');
   }
   let room, voice, holding = false, openMic = false;
+  const rows = new Map();
+  const embedded = /(?:^|[?&])embedded=1(?:&|$)/.test(location.search || '');
+  if (embedded) document.body?.classList.add('voice-embedded');
   const supported = window.isSecureContext && navigator.mediaDevices?.getUserMedia && window.RTCPeerConnection && (window.AudioContext || window.webkitAudioContext);
   function render(state) {
     $('voice-requirement').hidden = !!window.isSecureContext;
@@ -16,18 +19,34 @@
     $('voice-hold').disabled = !state.joined || !state.connected || openMic;
     $('voice-open').disabled = !state.joined || !state.connected;
     $('voice-listen').hidden = !state.needsAudio;
+    $('voice-reconnect').disabled = !supported || !state.connected || state.joining;
     $('voice-mic').textContent = state.micOn ? 'Microphone ON — friends can hear you' : 'Microphone off';
     $('voice-hold').classList.toggle('is-talking', holding && state.micOn);
     $('voice-open').setAttribute('aria-pressed', String(openMic));
     $('voice-open').textContent = openMic ? 'Turn off open mic' : 'Turn on open mic';
     $('voice-count').textContent = state.peers.length;
-    $('voice-peers').replaceChildren();
+    for (const [id, row] of rows) if (!state.peers.some(peer => peer.id === id)) { row.item.remove(); rows.delete(id); }
+    if (state.peers.length && !rows.size) $('voice-peers').replaceChildren();
     for (const peer of state.peers) {
-      const item = document.createElement('li');
-      item.textContent = `${peer.name}${peer.self ? ' (you)' : ''} · ${peer.micOn ? 'mic on' : 'muted'} · ${peer.connection}`;
-      $('voice-peers').appendChild(item);
+      let row = rows.get(peer.id);
+      if (!row) {
+        const item = document.createElement('li'), title = document.createElement('span'); item.appendChild(title);
+        row = { item, title };
+        if (!peer.self) {
+          const label = document.createElement('label'), slider = document.createElement('input');
+          label.textContent = `Volume for ${peer.name}`;
+          slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.step = '5'; slider.value = String(Math.round(peer.volume * 100));
+          slider.oninput = () => voice.setVolume(peer.id, Number(slider.value) / 100);
+          label.appendChild(slider); item.appendChild(label); row.slider = slider;
+        }
+        rows.set(peer.id, row); $('voice-peers').appendChild(item);
+      }
+      row.title.textContent = `${peer.name}${peer.self ? ' (you)' : ''} · ${peer.speaking ? 'speaking' : peer.micOn ? 'mic on' : 'muted'} · ${peer.connection}`;
+      row.item.classList.toggle('is-speaking', peer.speaking);
+      if (row.slider && document.activeElement !== row.slider) row.slider.value = String(Math.round(peer.volume * 100));
     }
-    if (!state.peers.length) { const item = document.createElement('li'); item.textContent = 'No one joined yet.'; $('voice-peers').appendChild(item); }
+    if (!state.peers.length) { const item = document.createElement('li'); item.textContent = 'No one joined yet.'; $('voice-peers').replaceChildren(item); }
+    if (embedded) window.parent.postMessage({ type: 'sharemusic:voice', joined: state.joined, speaking: !!state.speaking, message: state.message }, location.origin);
   }
   voice = window.ShareMusicVoice({ send: packet => room?.send(packet) || false, onChange(state) {
     if (!state.joined) { holding = false; openMic = false; }
@@ -38,6 +57,7 @@
   });
   $('voice-join').onclick = () => voice.join($('voice-name').value);
   $('voice-leave').onclick = () => voice.leave();
+  $('voice-reconnect').onclick = () => { voice.leave(); return voice.join($('voice-name').value); };
   $('voice-listen').onclick = () => voice.enableAudio();
   $('voice-open').onclick = () => {
     if (!voice.snapshot().joined) return;

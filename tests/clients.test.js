@@ -9,6 +9,7 @@ test('both actual HTML entrypoints initialize once and admin registers without l
     h.window[page === 'admin' ? 'LocalShareMusicAdmin' : 'LocalShareMusicFloor'].start();
     assert.equal(h.sockets.length, 1);
     h.sockets[0].open();
+    h.state({});
     assert.equal(h.sockets[0].sent[0].role, page === 'admin' ? 'admin' : 'listener');
     if (page === 'admin') { assert.equal(h.e('connection').textContent, 'Room connected'); assert.equal(h.e('login-panel'), undefined); }
   }

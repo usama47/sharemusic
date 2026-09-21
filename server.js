@@ -8,8 +8,10 @@ const http = require('http');
 const https = require('https');
 const { WebSocketServer } = require('ws');
 const { createVoiceRoom } = require('./voice-room');
+const QRCode = require('qrcode');
+const net = require('net');
 
-function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHandler } = {}) {
+function createHost({ storageRoot = __dirname, startDelayMs = 3000, bufferWaitMs = 30000, tls, setupHandler, inviteHosts = [] } = {}) {
   const dataDir = path.join(storageRoot, 'data');
   const mediaDir = path.join(storageRoot, 'local-media');
   const tracksFile = path.join(dataDir, 'local-tracks.json');
@@ -24,13 +26,13 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
     fs.renameSync(`${tracksFile}.tmp`, tracksFile);
     tracks = next;
   }
-  const state = { status: 'idle', track: tracks[0] || null, startAt: null, positionMs: 0, playbackRate: 1 };
+  const state = { status: 'idle', track: tracks[0] || null, startAt: null, positionMs: 0, playbackRate: 1, syncMode: 'smooth', waitForBuffers: false, autoNext: false, queue: [], bufferNotice: '', bufferRequestId: 0 };
   const devices = new Map();
   const app = express();
   const server = tls ? https.createServer(tls, app) : http.createServer(app);
   const httpServer = tls && setupHandler ? http.createServer(app) : null;
   const wss = new WebSocketServer({ noServer: true, maxPayload: 32768 });
-  let endTimer;
+  let endTimer, bufferTimer, closing = false;
   function elapsedMs() {
     const delta = state.status === 'running' ? Math.max(0, Date.now() - state.startAt) * state.playbackRate : 0;
     return Math.min(state.track?.durationMs || 0, state.positionMs + delta);
@@ -48,6 +50,32 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
     for (const device of devices.values()) { device.ready = false; device.trackId = null; device.status = 'loading'; }
     broadcastDevices();
   }
+  function beginPlayback() {
+    clearTimeout(bufferTimer);
+    state.status = 'running'; state.startAt = Date.now() + startDelayMs; state.bufferNotice = '';
+    scheduleEnd(); broadcastState();
+  }
+  function buffersReady() {
+    return [...devices.values()].filter(device => device.role === 'listener').every(device =>
+      device.joined && device.ready && device.trackId === state.track?.id &&
+      device.bufferRequestId === state.bufferRequestId && device.bufferPositionMs === state.positionMs && device.bufferedMs >= Math.min(3000, state.track.durationMs - state.positionMs));
+  }
+  function checkBuffers() { if (!closing && state.status === 'buffering' && buffersReady()) beginPlayback(); }
+  function requestPlayback() {
+    clearTimeout(bufferTimer);
+    if (!state.waitForBuffers) return beginPlayback();
+    state.status = 'buffering'; state.startAt = null; state.bufferNotice = '';
+    state.bufferRequestId++;
+    // Require a fresh readiness report for this anchor, including after a seek.
+    for (const device of devices.values()) device.bufferPositionMs = null;
+    broadcastState();
+    bufferTimer = setTimeout(() => {
+      if (state.status !== 'buffering') return;
+      state.status = 'paused'; state.bufferNotice = 'Some listeners are not ready. Resume to wait again, or turn off buffer waiting.';
+      broadcastState();
+    }, bufferWaitMs);
+    checkBuffers();
+  }
   function scheduleEnd() {
     clearTimeout(endTimer);
     if (state.status !== 'running' || !state.track) return;
@@ -55,12 +83,16 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
     endTimer = setTimeout(() => {
       if (elapsedMs() < state.track.durationMs) return scheduleEnd();
       state.positionMs = state.track.durationMs; state.status = 'ended'; state.startAt = null;
+      if (state.autoNext && state.queue.length) {
+        const next = tracks.find(track => track.id === state.queue.shift());
+        if (next) { selectTrack(next); requestPlayback(); return; }
+      }
       broadcastState();
     }, Math.min(2147483647, delay + 10));
   }
   function selectTrack(track) {
-    clearTimeout(endTimer);
-    Object.assign(state, { track, status: 'idle', startAt: null, positionMs: 0 });
+    clearTimeout(endTimer); clearTimeout(bufferTimer);
+    Object.assign(state, { track, status: 'idle', startAt: null, positionMs: 0, bufferNotice: '' });
     resetReadiness(); broadcastState();
   }
   const upload = multer({
@@ -86,6 +118,27 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
   app.use(express.static(path.join(__dirname, 'public'), { etag: true }));
   app.get('/local/state', (req, res) => res.json(publicState()));
   app.get('/local/tracks', (req, res) => res.json(tracks));
+  function inviteLinks(req) {
+    const hosts = new Set(inviteHosts);
+    try { for (const entries of Object.values(os.networkInterfaces())) for (const item of entries || []) if (item.family === 'IPv4' && !item.internal) hosts.add(item.address); } catch (_) {}
+    // Include the address this browser actually reached (important on Termux).
+    if (net.isIP(req.hostname) === 4) hosts.add(req.hostname);
+    const usable = [...hosts].filter(host => typeof host === 'string' && host !== 'localhost' && !host.startsWith('127.') &&
+      (net.isIP(host) === 4 || host.length <= 253 && host.split('.').every(part => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(part))));
+    return usable.map(host => `${req.socket.encrypted ? 'https' : 'http'}://${host}:${req.socket.localPort}/floor`);
+  }
+  app.get('/local/features', (req, res) => {
+    const hostname = req.hostname;
+    const valid = net.isIP(hostname) === 4 || /^[a-z0-9.-]+$/i.test(hostname);
+    res.json({ invitations: inviteLinks(req), secureOrigin: tls && server.listening && valid ? `https://${hostname}:${server.address().port}` : null });
+  });
+  app.get('/local/invite.svg', async (req, res, next) => {
+    const links = inviteLinks(req);
+    const link = links.find(item => item === req.query.url);
+    if (!link) return res.status(400).json({ error: 'Choose one of this host’s network invitation links.' });
+    try { res.type('image/svg+xml').send(await QRCode.toString(link, { type: 'svg', margin: 4, errorCorrectionLevel: 'M', width: 240 })); }
+    catch (error) { next(error); }
+  });
   app.post('/local/tracks', upload.single('file'), (req, res, next) => {
     if (!req.file) return res.status(400).json({ error: 'Choose an MP3, M4A, OGG, OGA, WAV, or WebM file' });
     const durationMs = Math.round(Number(req.body.durationMs));
@@ -104,13 +157,15 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
     const track = tracks.find(item => item.id === req.params.id);
     if (!track) return res.status(404).json({ error: 'Track not found' });
     const selected = state.track?.id === track.id;
-    if (selected && ['running', 'paused'].includes(state.status)) return res.status(409).json({ error: 'Stop playback before deleting this track' });
+    if (selected && ['running', 'paused', 'buffering'].includes(state.status)) return res.status(409).json({ error: 'Stop playback before deleting this track' });
     const previous = tracks;
     saveTracks(tracks.filter(item => item.id !== track.id));
     try { fs.rmSync(path.join(mediaDir, track.file), { force: true }); }
     catch (error) { saveTracks(previous); throw error; }
+    state.queue = state.queue.filter(id => id !== track.id);
     broadcast({ type: 'tracks', tracks });
     if (selected) selectTrack(tracks[0] || null);
+    else broadcastState();
     res.json({ ok: true });
   });
   app.use((error, req, res, next) => {
@@ -138,20 +193,49 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
         if (!['not joined', 'loading', 'ready', 'playing', 'paused', 'blocked', 'error', 'ended'].includes(message.status)) return;
         Object.assign(device, { joined: message.joined === true, trackId: message.trackId === state.track?.id ? message.trackId : null, status: message.status });
         device.ready = device.joined && !!device.trackId && message.ready === true && ['ready', 'playing', 'paused'].includes(message.status);
+        device.bufferedMs = Number.isFinite(message.bufferedMs) ? Math.max(0, Math.min(message.bufferedMs, state.track?.durationMs || 0)) : 0;
+        device.bufferPositionMs = Number.isFinite(message.bufferPositionMs) ? message.bufferPositionMs : null;
+        device.bufferRequestId = message.bufferRequestId;
         broadcastDevices();
+        checkBuffers();
       }
       // Direct admin access is intentional: roles route commands, not authenticate users.
       // Every registered listener may pause/resume the shared room. Other
       // controls remain on the dashboard; commands are explicit, not toggles.
       if (!device || (device.role !== 'admin' && !(device.role === 'listener' && ['pause', 'resume'].includes(message.type)))) return;
+      if (message.type === 'room:options') {
+        if (['smooth', 'tight'].includes(message.syncMode)) state.syncMode = message.syncMode;
+        if (typeof message.waitForBuffers === 'boolean') state.waitForBuffers = message.waitForBuffers;
+        if (typeof message.autoNext === 'boolean') state.autoNext = message.autoNext;
+        if (state.status === 'buffering' && !state.waitForBuffers) beginPlayback();
+        else broadcastState();
+        return;
+      }
+      if (message.type === 'queue:add') {
+        if (state.queue.length < 100 && tracks.some(track => track.id === message.trackId)) state.queue.push(message.trackId);
+        broadcastState(); return;
+      }
+      if (message.type === 'queue:remove' || message.type === 'queue:move') {
+        const index = message.index;
+        if (!Number.isInteger(index) || index < 0 || index >= state.queue.length) return;
+        if (message.type === 'queue:remove') state.queue.splice(index, 1);
+        else if ([-1, 1].includes(message.direction)) {
+          const target = index + message.direction;
+          if (target >= 0 && target < state.queue.length) [state.queue[index], state.queue[target]] = [state.queue[target], state.queue[index]];
+        }
+        broadcastState(); return;
+      }
+      if (message.type === 'start-now' && state.status === 'buffering') { beginPlayback(); return; }
       if (message.type === 'start' && state.track && ['idle', 'ended'].includes(state.status)) {
         if (state.status === 'ended' || state.positionMs >= state.track.durationMs) state.positionMs = 0;
-        state.status = 'running'; state.startAt = Date.now() + startDelayMs;
-      } else if (message.type === 'pause' && state.status === 'running') {
+        requestPlayback(); return;
+      } else if (message.type === 'pause' && ['running', 'buffering'].includes(state.status)) {
+        clearTimeout(bufferTimer);
         state.positionMs = elapsedMs(); state.status = 'paused'; state.startAt = null;
       } else if (message.type === 'resume' && state.status === 'paused') {
-        state.status = 'running'; state.startAt = Date.now() + startDelayMs;
+        requestPlayback(); return;
       } else if (message.type === 'stop') {
+        clearTimeout(bufferTimer); state.bufferNotice = '';
         state.status = 'idle'; state.startAt = null; state.positionMs = 0;
       } else if (message.type === 'select-track' && ['idle', 'ended'].includes(state.status)) {
         const track = tracks.find(item => item.id === message.trackId);
@@ -161,6 +245,7 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
         state.positionMs = Math.max(0, Math.min(state.track.durationMs, message.positionMs));
         if (state.status === 'ended') state.status = 'idle';
         if (state.status === 'running') state.startAt = Math.max(Date.now(), state.startAt);
+        if (state.status === 'buffering') { requestPlayback(); return; }
       } else if (message.type === 'speed' && Number.isFinite(message.playbackRate) && message.playbackRate >= 0.5 && message.playbackRate <= 2) {
         state.positionMs = elapsedMs();
         if (state.status === 'running') state.startAt = Math.max(Date.now(), state.startAt);
@@ -168,7 +253,7 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
       } else return;
       scheduleEnd(); broadcastState();
     });
-    socket.on('close', () => { voiceRoom.leave(socket); devices.delete(socket); broadcastDevices(); });
+    socket.on('close', () => { voiceRoom.leave(socket); devices.delete(socket); broadcastDevices(); checkBuffers(); });
   });
   const heartbeat = setInterval(() => {
     for (const socket of wss.clients) {
@@ -184,7 +269,8 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, tls, setupHa
   server.on('upgrade', upgrade);
   httpServer?.on('upgrade', upgrade);
   async function close() {
-    clearInterval(heartbeat); clearTimeout(endTimer);
+    closing = true;
+    clearInterval(heartbeat); clearTimeout(endTimer); clearTimeout(bufferTimer);
     for (const socket of wss.clients) socket.terminate();
     await new Promise(resolve => wss.close(resolve));
     if (server.listening) await new Promise(resolve => server.close(resolve));

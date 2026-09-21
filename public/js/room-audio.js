@@ -5,7 +5,19 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
   let trackId = null, generation = 0, startTimer, status = 'not joined', message = '';
   let lastHardSeek = -Infinity, largeDriftSince = null, pendingAlignment = false;
   const current = () => window.ShareMusicRoom.elapsed(state, now());
-  const snapshot = () => ({ enabled, enabling, trackId, status, message,
+  function bufferedMs() {
+    const position = state.status === 'running' ? audio.currentTime : (state.positionMs || 0) / 1000;
+    const remaining = Math.max(0, (state.track?.durationMs || 0) - position * 1000);
+    for (let i = 0; i < (audio.buffered?.length || 0); i++) {
+      if (audio.buffered.start(i) <= position && audio.buffered.end(i) >= position) {
+        const ahead = Math.min(remaining, (audio.buffered.end(i) - position) * 1000);
+        return ahead >= remaining - 50 ? Math.ceil(remaining) : Math.floor(ahead / 1000) * 1000;
+      }
+    }
+    return 0;
+  }
+  const snapshot = () => ({ enabled, enabling, trackId, status, message, bufferedMs: bufferedMs(),
+    bufferPositionMs: state.positionMs || 0, bufferRequestId: state.bufferRequestId || 0,
     ready: connected && enabled && audio.readyState >= 3 && !audio.error && ['ready', 'playing', 'paused'].includes(status) });
   let lastNotice = '';
   const notify = () => {
@@ -54,7 +66,9 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
       if (tick - largeDriftSince >= 2000 && tick - lastHardSeek >= 8000 && bufferedAt(seconds)) seek(seconds);
     } else largeDriftSince = null;
     // Ignore clock/media precision noise. Correct gently without pausing or seeking.
-    const correction = stable && !audio.seeking && Math.abs(difference) > 0.08 ? Math.max(-0.02, Math.min(0.02, difference * 0.04)) : 0;
+    const tight = state.syncMode === 'tight';
+    const limit = tight ? 0.03 : 0.02;
+    const correction = stable && !audio.seeking && Math.abs(difference) > (tight ? 0.04 : 0.08) ? Math.max(-limit, Math.min(limit, difference * (tight ? 0.08 : 0.04))) : 0;
     setRate(state.playbackRate * (1 + correction));
     if (!audio.paused) status = audio.readyState >= 3 ? 'playing' : 'loading';
     if (audio.paused && !audio.seeking && !playPending && audio.readyState >= 2) {
@@ -77,8 +91,11 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
     if (connected && state.status === 'running' && state.startAt > now()) startTimer = setTimeout(() => sync(true), state.startAt - now());
   }
   function setState(next) {
-    generation++; state = next;
-    if (enabling) audio.pause();
+    const anchor = value => JSON.stringify([value.status, value.track?.id, value.startAt, value.positionMs, value.playbackRate]);
+    const changed = anchor(state) !== anchor(next);
+    if (changed) generation++;
+    state = next;
+    if (enabling && changed) audio.pause();
     if (trackId !== (state.track?.id || null)) {
       lastHardSeek = -Infinity; largeDriftSince = null;
       audio.pause(); trackId = state.track?.id || null; status = 'loading'; message = '';
@@ -86,7 +103,7 @@ window.ShareMusicAudio = ({ audio, now, onChange = () => {} }) => {
       else audio.removeAttribute('src');
       audio.load();
     }
-    sync(true); schedule();
+    sync(changed); schedule();
   }
   async function enable() {
     if (!connected || !state.track || enabling) return false;

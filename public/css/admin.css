@@ -21,6 +21,17 @@ input { width: 100%; padding: 12px 13px; color: #fff; background: #071a11; borde
 .button-primary { background: #147344; border-color: #d8b866; font-weight: 600; }
 .button-quiet { background: transparent; }
 .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.playback-options { margin: 12px 0; }
+.playback-options summary { cursor: pointer; padding: 10px 0; }
+.playback-options label { display: block; margin: 12px 0; }
+.up-next { margin-top: 24px; border-top: 1px solid #39533d; padding-top: 18px; }
+.up-next label { display: block; margin: 12px 0; }
+#queue-list { padding-left: 22px; }
+#queue-list li { margin: 10px 0; overflow-wrap: anywhere; }
+#queue-list span { display: block; margin-bottom: 6px; }
+#queue-list button, .queue-track { color: #fff; background: #153c27; border: 1px solid #39533d; border-radius: 6px; padding: 10px; min-height: 44px; cursor: pointer; }
+#queue-list button { margin-right: 6px; }
+.track-select { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .topbar { flex-wrap: wrap; } }
 .button { text-decoration: none; }
 #preview { width: 100%; margin-top: 10px; }

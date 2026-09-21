@@ -12,21 +12,22 @@ window.LocalShareMusicFloor = (() => {
     const now = () => room?.now() ?? Date.now();
     function render() {
       const sound = player.snapshot();
+      window.ShareMusicTools?.update({ connected, state, sound });
       const current = elapsed(state, now());
       $('playing-screen').classList.toggle('is-paused', state.status !== 'running' || !connected);
       $('waiting-track').textContent = state.track?.name || 'Waiting for a song';
-      $('waiting-status').textContent = state.track ? 'The host will start playback soon.' : 'The host will choose a song soon.';
+      $('waiting-status').textContent = state.status === 'buffering' ? 'Waiting for everyone to join and buffer audio…' : state.track ? 'The host will start playback soon.' : 'The host will choose a song soon.';
       $('playing-track').textContent = state.track?.name || 'ShareMusic';
       $('playing-duration').textContent = format(state.track?.durationMs || 0);
       $('playing-time').textContent = format(current);
       $('listener-progress-bar').style.width = `${state.track ? current / state.track.durationMs * 100 : 0}%`;
       $('join').disabled = sound.enabling || !connected || !state.track;
-      const controllable = ['running', 'paused'].includes(state.status);
+      const controllable = ['running', 'paused', 'buffering'].includes(state.status);
       $('room-controls').classList.toggle('hidden', !sound.enabled || !controllable);
       $('room-toggle').disabled = !connected || !sound.enabled || !controllable;
       $('room-toggle').textContent = state.status === 'paused' ? 'Resume for everyone' : 'Pause for everyone';
       if (!sound.enabled) return show('join-screen');
-      if (state.status === 'idle') return show('waiting-screen');
+      if (state.status === 'idle' || state.status === 'buffering') return show('waiting-screen');
       if (state.status === 'ended') return show('ended-screen');
       if (state.status === 'running' && state.startAt > now()) {
         $('countdown').textContent = Math.max(1, Math.ceil((state.startAt - now()) / 1000));
@@ -36,7 +37,7 @@ window.LocalShareMusicFloor = (() => {
       $('playing-status').textContent = !connected ? 'Audio paused while reconnecting…' : state.status === 'paused' ? 'Room playback is paused.' : sound.status === 'loading' ? 'Buffering audio…' : `Playing with the room · ${state.playbackRate}×`;
     }
     player = window.ShareMusicAudio({ audio: $('audio'), now, onChange(sound) {
-      const payload = { type: 'listener:status', trackId: sound.trackId, joined: sound.enabled, ready: sound.ready, status: sound.status };
+      const payload = { type: 'listener:status', trackId: sound.trackId, joined: sound.enabled, ready: sound.ready, status: sound.status, bufferedMs: sound.bufferedMs, bufferPositionMs: sound.bufferPositionMs, bufferRequestId: sound.bufferRequestId };
       const key = JSON.stringify(payload);
       if (key !== lastReport && room?.send(payload)) lastReport = key;
       if (sound.message) $('join-status').textContent = sound.message;
@@ -44,7 +45,7 @@ window.LocalShareMusicFloor = (() => {
     } });
     $('join').onclick = () => player.enable();
     $('room-toggle').onclick = () => {
-      if (!connected || !player.snapshot().enabled || !['running', 'paused'].includes(state.status)) return;
+      if (!connected || !player.snapshot().enabled || !['running', 'paused', 'buffering'].includes(state.status)) return;
       room.send({ type: state.status === 'paused' ? 'resume' : 'pause' });
     };
     room = window.ShareMusicRoom.connect({ role: 'listener', label: `Listener-${Math.random().toString(36).slice(2, 6)}`,

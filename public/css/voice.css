@@ -25,3 +25,8 @@ button[hidden], [hidden] { display: none !important; }
 .notice { color: #ffcf9b; }
 ul { padding: 0; list-style: none; }
 li { padding: 10px 0; border-bottom: 1px solid #39533d; overflow-wrap: anywhere; }
+.is-speaking { border-left: 3px solid #5bd18b; padding-left: 12px; }
+li label { font-size: 13px; color: #b8c8bb; margin-top: 10px; }
+li input[type=range] { padding: 0; min-height: 36px; }
+.voice-embedded .voice-shell { padding: 12px; }
+.voice-embedded nav, .voice-embedded .voice-shell > .eyebrow, .voice-embedded h1 { display: none; }

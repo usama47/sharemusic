@@ -6,10 +6,12 @@ function voiceMocks() {
     getAudioTracks() { return this.tracks.filter(track => track.kind === 'audio'); }
   }
   class AudioContext {
-    constructor() { this.state = 'suspended'; this.sources = []; calls.contexts.push(this); }
+    constructor() { this.state = 'suspended'; this.sources = []; this.analysers = []; this.gains = []; calls.contexts.push(this); }
     async resume() { this.state = 'running'; }
     async close() { this.state = 'closed'; }
     createMediaStreamSource(stream) { const source = { stream, connected: false, connect() { this.connected = true; }, disconnect() { this.connected = false; } }; this.sources.push(source); return source; }
+    createAnalyser() { const analyser = { fftSize: 512, level: 0, connect() {}, disconnect() {}, getFloatTimeDomainData(samples) { samples.fill(this.level); } }; this.analysers.push(analyser); return analyser; }
+    createGain() { const gain = { gain: { value: 1 }, connect() {}, disconnect() {} }; this.gains.push(gain); return gain; }
   }
   class PC {
     constructor(options) { this.options = options; this.connectionState = 'new'; this.candidates = []; this.tracks = []; calls.pcs.push(this); }

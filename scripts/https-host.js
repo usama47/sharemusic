@@ -100,11 +100,12 @@ async function main() {
     try { selected = new URL(`http://${req.headers.host}`).hostname; } catch (_) {}
     // Only a certificate-covered address may become the suggested destination.
     const fromAdmin = req.query.from === 'admin';
-    const quickLinks = addresses.has(selected) ? `<h2>Already set up?</h2><p><a href="https://${authority(selected)}:${port}/voice${fromAdmin ? '?from=admin' : ''}">Open Voice</a> · <a href="http://${authority(selected)}:${setupPort}/${fromAdmin ? 'admin' : 'floor'}">${fromAdmin ? 'Back to dashboard' : 'Back to music'}</a></p>` : '<p>This address is not on the host certificate. Restart with <code>npm start -- YOUR_HOST_IP</code> using the host’s Wi-Fi address.</p>';
+    const destination = req.query.music === '1' ? `/${fromAdmin ? 'admin' : 'floor'}?voice=1` : `/voice${fromAdmin ? '?from=admin' : ''}`;
+    const quickLinks = addresses.has(selected) ? `<h2>Already set up?</h2><p><a href="https://${authority(selected)}:${port}${destination}">Open ${req.query.music === '1' ? 'Music + Voice' : 'Voice'}</a> · <a href="http://${authority(selected)}:${setupPort}/${fromAdmin ? 'admin' : 'floor'}">${fromAdmin ? 'Back to dashboard' : 'Back to music'}</a></p>` : '<p>This address is not on the host certificate. Restart with <code>npm start -- YOUR_HOST_IP</code> using the host’s Wi-Fi address.</p>';
     const navigation = `<nav aria-label="App navigation"><a href="/${fromAdmin ? 'admin' : 'floor'}">${fromAdmin ? 'Back to dashboard' : 'Back to music'}</a> · <a href="/help.html${fromAdmin ? '?from=admin' : ''}">Setup &amp; help</a></nav>`;
     res.end(page.replace('<h1>', `${navigation}<h1>`).replace('<ol>', `${quickLinks}<ol>`).replace(`<ul>${links}</ul>`, `<details><summary>Other host addresses (advanced)</summary><p>127.0.0.1 and localhost only work on the host itself.</p><ul>${links}</ul></details>`));
   };
-  const host = createHost({ setupHandler, tls: { key: fs.readFileSync(file('server-key.pem')), cert: fs.readFileSync(file('server-cert.pem')) } });
+  const host = createHost({ setupHandler, inviteHosts: [...addresses], tls: { key: fs.readFileSync(file('server-key.pem')), cert: fs.readFileSync(file('server-cert.pem')) } });
   const listen = (server, number) => new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(number, '0.0.0.0', () => { server.removeListener('error', reject); resolve(); });

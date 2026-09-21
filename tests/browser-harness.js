@@ -10,6 +10,12 @@ function browser(page, { epoch = 100000, prepare = () => {} } = {}) {
     addEventListener(name, fn) { (this.handlers[name] ||= []).push(fn); }
     emit(name, event = {}) { for (const fn of this.handlers[name] || []) fn(event); }
     setAttribute(name, value) { (this.attributes ||= {})[name] = value; }
+    getAttribute(name) { return this.attributes?.[name] ?? null; }
+    remove() { this.parentElement?.children.splice(this.parentElement.children.indexOf(this), 1); }
+    showModal() { this.open = true; }
+    close() { this.open = false; }
+    focus() { document.activeElement = this; }
+    select() {}
     replaceChildren(...items) { this.children = items; }
     setPointerCapture(id) { this.captured = id; }
     pause() { this.paused = true; }
@@ -18,9 +24,14 @@ function browser(page, { epoch = 100000, prepare = () => {} } = {}) {
     removeAttribute(name) { this[name] = ''; }
     querySelectorAll() { return []; }
     querySelector(name) { return this.parts?.[name] || (this.parts ||= {}, this.parts[name] = new Element(name)); }
-    appendChild(item) { this.children.push(item); }
+    appendChild(item) { this.children.push(item); item.parentElement = this; }
   }
   for (const [, id] of html.matchAll(/id="([^"]+)"/g)) elements.set(id, new Element(id));
+  if (elements.has('room-tools')) elements.get('room-tools').setAttribute('data-role', page === 'admin' ? 'admin' : 'listener');
+  for (const id of ['audio', 'room-audio']) if (elements.has(id)) {
+    elements.get(id).buffered = { length: 1, start: () => 0, end: () => 120 };
+    elements.get(id).volume = 1;
+  }
   const document = { getElementById: id => elements.get(id) || null, createElement: () => new Element('created'), handlers: {}, addEventListener(name, fn) { this.handlers[name] = fn; } };
   class WS {
     static OPEN = 1;
@@ -32,7 +43,7 @@ function browser(page, { epoch = 100000, prepare = () => {} } = {}) {
   }
   const addTimer = (fn, delay, repeat) => { const id = ++timerId; timers.set(id, { fn, due: time + delay, repeat }); return id; };
   const window = { navigator: {}, handlers: {}, isSecureContext: true, matchMedia: () => ({ matches: false }), addEventListener(name, fn) { this.handlers[name] = fn; } };
-  const context = { window, document, navigator: window.navigator, location: { protocol: 'http:', host: 'localhost' }, WebSocket: WS, Date: { now: () => epoch + time + wallJump }, performance: { now: () => time }, console,
+  const context = { window, document, navigator: window.navigator, location: { protocol: 'http:', host: 'localhost', origin: 'http://localhost' }, WebSocket: WS, Date: { now: () => epoch + time + wallJump }, performance: { now: () => time }, console,
     setTimeout: (fn, delay) => addTimer(fn, delay, 0), clearTimeout: id => timers.delete(id), setInterval: (fn, delay) => addTimer(fn, delay, delay), clearInterval: id => timers.delete(id),
     fetch: async () => ({ ok: true, json: async () => [] }), Audio: Element, URL: { createObjectURL: () => 'blob:test', revokeObjectURL() {} }
   };

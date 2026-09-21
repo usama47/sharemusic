@@ -1,0 +1,21 @@
+.room-tools-dialog { box-sizing: border-box; width: min(620px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 20px; border: 1px solid #657650; border-radius: 16px; color: #f5f8f3; background: #092719; font: 15px/1.5 system-ui, sans-serif; }
+.room-tools-dialog::backdrop { background: #0009; }
+.room-tools-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.room-tools-dialog h2 { margin: 0; font: 600 26px Georgia, serif; }
+.room-tools-dialog h3 { margin: 0 0 12px; }
+.room-tools-dialog section { border-top: 1px solid #39533d; padding: 18px 0; }
+.room-tools-dialog button, .room-tools-dialog select, .room-tools-dialog input:not([type=checkbox]) { min-height: 44px; color: #fff; background: #153c27; border: 1px solid #6e8a79; border-radius: 7px; padding: 9px 12px; font: inherit; }
+.room-tools-dialog button { cursor: pointer; }
+.room-tools-dialog a { color: #e9ca81; }
+.room-tools-dialog input:not([type=checkbox]), .room-tools-dialog select { display: block; box-sizing: border-box; max-width: 100%; width: 100%; margin: 10px 0; }
+.room-tools-dialog [hidden] { display: none !important; }
+.tools-hint { color: #b8c8bb; font-size: 13px; }
+.tools-checks { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; }
+.tools-checks dd { margin: 0; overflow-wrap: anywhere; }
+.tools-qr { display: block; max-width: 100%; height: auto; margin: 16px auto; background: white; }
+.tools-voice-frame { width: 100%; height: 560px; max-height: 65dvh; border: 1px solid #39533d; border-radius: 8px; margin-top: 14px; background: #071a11; }
+.tools-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.tools-duck-label { display: block; margin-top: 12px; }
+.listener-nav { flex-wrap: wrap; }
+.listener-screen { padding-top: 130px; }
+#waiting-screen { padding-bottom: 125px; }

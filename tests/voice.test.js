@@ -7,6 +7,7 @@ function fixture() {
   const mocks = voiceMocks();
   const h = browser('voice', { prepare: mocks.prepare });
   h.sockets[0].open();
+  h.state({});
   const roster = peers => h.sockets.at(-1).receive({ type: 'voice:peers', selfId: 'b', peers: [{ id: 'b', name: 'Me', micOn: false }, ...peers] });
   return { h, ...mocks, roster };
 }
@@ -66,7 +67,7 @@ test('voice offers one side per pair, queues early ICE, attaches remote audio an
   h.sockets[0].receive({ type: 'voice:signal', from: 'a', candidate }); await flush(); assert.equal(calls.pcs[0].candidates.length, 0);
   h.sockets[0].receive({ type: 'voice:signal', from: 'a', description: { type: 'offer', sdp: 'sdp' } }); await flush(); await flush();
   assert.equal(calls.pcs[0].candidates.length, 1); assert.equal(calls.pcs[0].localDescription.type, 'answer');
-  calls.pcs[0].ontrack({ track: { kind: 'audio' } }); assert(calls.contexts[0].sources[0].connected);
-  roster([{ id: 'c', name: '<script>', micOn: true }]); assert.equal(calls.pcs[0].connectionState, 'closed'); assert.equal(calls.contexts[0].sources[0].connected, false);
-  assert(h.e('voice-peers').children.some(item => item.textContent.includes('<script>')));
+  calls.pcs[0].ontrack({ track: { kind: 'audio' } }); assert(calls.contexts[0].sources[1].connected);
+  roster([{ id: 'c', name: '<script>', micOn: true }]); assert.equal(calls.pcs[0].connectionState, 'closed'); assert.equal(calls.contexts[0].sources[1].connected, false);
+  assert(h.e('voice-peers').children.some(item => item.children[0].textContent.includes('<script>')));
 });

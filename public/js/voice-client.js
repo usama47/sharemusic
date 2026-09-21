@@ -1,19 +1,37 @@
 // Small-group LAN voice. The server relays signaling; no recording or public ICE service.
 window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
   let connected = false, joined = false, joining = false, micOn = false;
-  let stream, context, selfId, session = 0, joinTimer, message = 'Join to hear your friends.';
+  let stream, context, selfId, session = 0, joinTimer, activityTimer, localMeter, message = 'Join to hear your friends.';
   const members = new Map(), peers = new Map();
   const snapshot = () => ({ connected, joined, joining, micOn, message,
     needsAudio: joined && context?.state !== 'running',
-    peers: [...members.values()].map(member => ({ ...member, self: member.id === selfId, connection: member.id === selfId ? 'you' : peers.get(member.id)?.failed ? 'retry needed' : peers.get(member.id)?.pc.connectionState || 'connecting' })) });
+    speaking: joined && (micOn && localMeter?.speaking || [...peers.values()].some(peer => peer.meter?.speaking)),
+    peers: [...members.values()].map(member => ({ ...member, self: member.id === selfId,
+      speaking: !!(member.id === selfId ? micOn && localMeter?.speaking : peers.get(member.id)?.meter?.speaking),
+      volume: peers.get(member.id)?.volume ?? 1,
+      connection: member.id === selfId ? 'you' : peers.get(member.id)?.failed ? 'retry needed' : peers.get(member.id)?.pc.connectionState || 'connecting' })) });
   const notify = () => onChange(snapshot());
+  function meter(source) {
+    const analyser = context.createAnalyser(); analyser.fftSize = 512;
+    source.connect(analyser);
+    return { analyser, samples: new Float32Array(analyser.fftSize), speaking: false, until: 0 };
+  }
+  function measure(item, allowed = true) {
+    if (!item) return false;
+    item.analyser.getFloatTimeDomainData(item.samples);
+    const rms = Math.sqrt(item.samples.reduce((sum, sample) => sum + sample * sample, 0) / item.samples.length);
+    const now = performance.now(), before = item.speaking;
+    if (allowed && rms > 0.025) item.until = now + 350;
+    item.speaking = allowed && now < item.until;
+    return before !== item.speaking;
+  }
   function closePeer(id) {
     const peer = peers.get(id);
     if (!peer) return;
-    peers.delete(id); clearTimeout(peer.timer); peer.source?.disconnect(); peer.pc.close();
+    peers.delete(id); clearTimeout(peer.timer); peer.source?.disconnect(); peer.meter?.analyser.disconnect(); peer.gain?.disconnect(); peer.pc.close();
   }
   function leave(tellServer = true) {
-    session++; clearTimeout(joinTimer);
+    session++; clearTimeout(joinTimer); clearInterval(activityTimer); localMeter = null;
     if (tellServer && connected && (joined || joining)) send({ type: 'voice:leave' });
     joined = false; joining = false; micOn = false; selfId = null;
     for (const track of stream?.getTracks() || []) track.stop();
@@ -46,6 +64,16 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
         track.enabled = false;
         track.onended = () => { if (stream === acquired) { leave(); message = 'Microphone disconnected. Join again when ready.'; notify(); } };
       });
+      // A silent local output enables analysis without monitoring our own microphone.
+      const source = context.createMediaStreamSource(stream);
+      localMeter = meter(source);
+      const silent = context.createGain(); silent.gain.value = 0;
+      localMeter.analyser.connect(silent); silent.connect(context.destination);
+      activityTimer = setInterval(() => {
+        let changed = measure(localMeter, micOn && context?.state === 'running');
+        for (const peer of peers.values()) changed = measure(peer.meter, context?.state === 'running' && members.get(peer.id)?.micOn === true) || changed;
+        if (changed) notify();
+      }, 100);
       if (!send({ type: 'voice:join', name })) throw new Error('Connection lost');
       joinTimer = setTimeout(() => { leave(); message = 'Voice join timed out. Try joining again.'; notify(); }, 10000);
     } catch (error) {
@@ -83,9 +111,11 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
     pc.ontrack = event => {
       if (!context || peers.get(id) !== peer || event.track.kind !== 'audio') return;
       try {
-        peer.source?.disconnect();
+        peer.source?.disconnect(); peer.meter?.analyser.disconnect(); peer.gain?.disconnect();
         peer.source = context.createMediaStreamSource(new MediaStream([event.track]));
-        peer.source.connect(context.destination);
+        peer.meter = meter(peer.source); peer.gain = context.createGain();
+        peer.gain.gain.value = peer.volume ?? 1;
+        peer.meter.analyser.connect(peer.gain); peer.gain.connect(context.destination);
       } catch (_) { message = 'A friend’s audio could not play. Leave and rejoin voice to retry.'; }
       notify();
     };
@@ -139,6 +169,13 @@ window.ShareMusicVoice = ({ send, onChange = () => {} }) => {
     }
   }
   return { snapshot, join, leave, setMic, receive,
+    setVolume(id, value) {
+      const peer = peers.get(id);
+      if (!peer || !Number.isFinite(value)) return;
+      peer.volume = Math.max(0, Math.min(1, value));
+      if (peer.gain) peer.gain.gain.value = peer.volume;
+      notify();
+    },
     setConnected(value) {
       connected = value;
       if (!value && (joined || joining)) { leave(false); message = 'Connection lost. Microphone released. Rejoin when connected.'; }

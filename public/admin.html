@@ -16,6 +16,7 @@
           <a href="/floor" class="button button-quiet">Listener view</a>
           <a href="/voice?from=admin" class="button button-primary">Voice chat</a>
           <a href="/help.html?from=admin" class="button button-quiet">Setup &amp; help</a>
+          <button id="room-tools-open" class="button" type="button">Room tools</button>
         </nav>
       </header>
       <div class="dashboard-grid">
@@ -31,6 +32,13 @@
             <button id="stop" class="button" disabled>Stop</button>
           </div>
           <p id="message" class="hint">Choose a song, then press Start.</p>
+          <button id="start-now" class="button" type="button" hidden>Start now — skip buffer wait</button>
+          <details class="playback-options"><summary>Playback options</summary>
+            <label>Synchronization <select id="sync-mode"><option value="smooth">Smooth (recommended)</option><option value="tight">Tighter timing</option></select></label>
+            <p class="hint">Tighter timing adjusts speed a little more. Both modes avoid repeated small seeks.</p>
+            <label><input id="wait-buffers" type="checkbox"> Wait for all connected listeners to join and buffer</label>
+            <p class="hint">Waits for up to 3 seconds of audio per listener, for a maximum of 30 seconds. Start now bypasses waiting.</p>
+          </details>
           <button id="enable-audio" class="button" type="button" hidden>Enable audio on this device</button>
           <p id="host-audio-status" class="hint" aria-live="polite"></p>
           <audio id="room-audio" preload="auto" playsinline></audio>
@@ -43,6 +51,11 @@
           <p class="upload-note">Select multiple files. Uploads continue one by one and stay available for this room.</p>
           <div id="upload-queue" class="upload-queue" aria-live="polite"></div>
           <div id="tracks" class="track-list"></div>
+          <section class="up-next" aria-label="Playlist queue">
+            <h2>Up next</h2><label><input id="auto-next" type="checkbox"> Automatically play the queue</label>
+            <p class="hint">Add songs with Queue. The queue lasts until the server restarts.</p>
+            <ol id="queue-list"></ol>
+          </section>
           <p class="hint">Preview the selected track on this device. Preview is separate from room playback.</p>
           <audio id="preview" preload="metadata" controls hidden></audio>
         </section>
@@ -54,6 +67,9 @@
       </div>
     </section>
   </main>
+  <div id="room-tools" data-role="admin"></div>
+  <link rel="stylesheet" href="/css/room-tools.css">
+  <script src="/js/room-tools.js"></script>
   <script src="/js/room-client.js"></script>
   <script src="/js/room-audio.js"></script>
   <script src="/js/local-admin.js"></script>

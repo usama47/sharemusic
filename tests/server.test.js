@@ -7,11 +7,11 @@ const { once } = require('node:events');
 const WebSocket = require('ws');
 const { createHost } = require('../server');
 
-async function fixture(t) {
+async function fixture(t, options = {}) {
   const storageRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sharemusic-test-'));
   const hosts = [];
   async function launch() {
-    const host = createHost({ storageRoot, startDelayMs: 200 }); hosts.push(host);
+    const host = createHost({ storageRoot, startDelayMs: 200, ...options }); hosts.push(host);
     host.server.listen(0, '127.0.0.1'); await once(host.server, 'listening');
     return { host, url: `http://127.0.0.1:${host.server.address().port}` };
   }
@@ -148,4 +148,77 @@ test('voice signaling routes only joined members, preserves sender identity, and
   assert.equal((await (await fetch(f.url + '/local/state')).json()).status, 'running');
   const remaining = second.wait('voice:peers', m => m.peers.length === 1); first.socket.close(); await remaining;
   await admin.command({ type: 'stop' });
+});
+
+test('queue supports duplicates, ordering, removal, deletion cleanup and automatic next with countdown', async t => {
+  const f = await fixture(t, { startDelayMs: 20 });
+  const first = (await (await upload(f.url, 100)).json()).track;
+  const second = (await (await upload(f.url, 60000)).json()).track;
+  const admin = await peer(f.url), listener = await peer(f.url, 'listener');
+  assert.deepEqual((await admin.command({ type: 'queue:add', trackId: second.id })).queue, [second.id]);
+  await admin.command({ type: 'queue:add', trackId: first.id });
+  assert.deepEqual((await admin.command({ type: 'queue:move', index: 1, direction: -1 })).queue, [first.id, second.id]);
+  assert.deepEqual((await admin.command({ type: 'queue:remove', index: 0 })).queue, [second.id]);
+  listener.send({ type: 'queue:add', trackId: first.id });
+  const barrier = listener.wait('clock:sync'); listener.send({ type: 'clock:sync', t0: 10 }); await barrier;
+  assert.deepEqual((await (await fetch(f.url + '/local/state')).json()).queue, [second.id]);
+  await admin.command({ type: 'room:options', autoNext: true });
+  const advance = admin.wait('state', packet => packet.state.status === 'running' && packet.state.track.id === second.id);
+  await admin.command({ type: 'start' });
+  const next = (await advance).state;
+  assert.equal(next.positionMs, 0); assert(next.startAt > next.serverNow); assert.deepEqual(next.queue, []);
+  await admin.command({ type: 'stop' });
+  await admin.command({ type: 'queue:add', trackId: first.id });
+  await admin.command({ type: 'queue:add', trackId: first.id });
+  assert.equal((await fetch(f.url + `/local/tracks/${first.id}`, { method: 'DELETE' })).status, 200);
+  assert.deepEqual((await (await fetch(f.url + '/local/state')).json()).queue, []);
+});
+
+test('buffer wait rejects stale or short reports, starts on readiness, supports override and cancellation', async t => {
+  const f = await fixture(t);
+  const track = (await (await upload(f.url)).json()).track;
+  const admin = await peer(f.url), listener = await peer(f.url, 'listener');
+  await admin.command({ type: 'room:options', waitForBuffers: true, syncMode: 'tight' });
+  const pending = await admin.command({ type: 'start' }); assert.equal(pending.status, 'buffering'); assert.equal(pending.syncMode, 'tight');
+  const report = { type: 'listener:status', joined: true, ready: true, status: 'ready', trackId: track.id, bufferPositionMs: 0, bufferedMs: 5000 };
+  for (const invalid of [{ ...report, bufferRequestId: 0 }, { ...report, bufferRequestId: pending.bufferRequestId, bufferedMs: 1000 }]) {
+    listener.send(invalid);
+    const barrier = listener.wait('clock:sync'); listener.send({ type: 'clock:sync', t0: 20 }); await barrier;
+    assert.equal((await (await fetch(f.url + '/local/state')).json()).status, 'buffering');
+  }
+  const started = admin.wait('state', packet => packet.state.status === 'running');
+  listener.send({ ...report, bufferRequestId: pending.bufferRequestId }); await started;
+  await admin.command({ type: 'stop' });
+  assert.equal((await admin.command({ type: 'start' })).status, 'buffering');
+  assert.equal((await admin.command({ type: 'start-now' })).status, 'running');
+  await admin.command({ type: 'stop' });
+  assert.equal((await admin.command({ type: 'start' })).status, 'buffering');
+  const paused = admin.wait('state', packet => packet.state.status === 'paused'); listener.send({ type: 'pause' }); await paused;
+  await admin.command({ type: 'stop' });
+  assert.equal((await admin.command({ type: 'start' })).status, 'buffering');
+  const disconnected = admin.wait('state', packet => packet.state.status === 'running'); listener.socket.close(); await disconnected;
+});
+
+test('buffer wait times out without silently starting and can be stopped', async t => {
+  const f = await fixture(t, { bufferWaitMs: 100 }); await upload(f.url);
+  const admin = await peer(f.url); await peer(f.url, 'listener');
+  await admin.command({ type: 'room:options', waitForBuffers: true });
+  const expired = admin.wait('state', packet => packet.state.status === 'paused' && packet.state.bufferNotice);
+  await admin.command({ type: 'start' }); assert.match((await expired).state.bufferNotice, /not ready/);
+  assert.equal((await admin.command({ type: 'resume' })).status, 'buffering');
+  await admin.command({ type: 'stop' });
+  await new Promise(resolve => setTimeout(resolve, 130));
+  assert.equal((await (await fetch(f.url + '/local/state')).json()).status, 'idle');
+});
+
+test('QR invitations use LAN listener URLs and reject arbitrary destinations', async t => {
+  const f = await fixture(t, { inviteHosts: ['192.168.43.1', 'localhost', '127.0.0.1'] });
+  const config = await (await fetch(f.url + '/local/features')).json();
+  assert.equal(config.secureOrigin, null);
+  const invitation = config.invitations.find(url => url.startsWith('http://192.168.43.1:'));
+  assert(invitation.endsWith('/floor')); assert(!config.invitations.some(url => /localhost|127\.0\.0\.1/.test(url)));
+  const qr = await fetch(f.url + '/local/invite.svg?url=' + encodeURIComponent(invitation));
+  assert.equal(qr.status, 200); assert.match(qr.headers.get('content-type'), /image\/svg\+xml/);
+  assert.match(await qr.text(), /<svg.*viewBox=/);
+  assert.equal((await fetch(f.url + '/local/invite.svg?url=https://example.com')).status, 400);
 });
