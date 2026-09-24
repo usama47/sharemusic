@@ -4,7 +4,7 @@
   if (admin) {
     $('help-back').href = '/admin'; $('help-back').textContent = 'Back to dashboard';
     $('help-voice').href = '/voice?from=admin'; $('help-setup').href = '/setup?from=admin';
-    $('music-help').textContent = 'Add audio files on the dashboard, select a song, then press Start. Start enables your audio too. Friends open the listener page and tap Join. Everyone can pause or resume; track selection stays on your dashboard.';
+    $('music-help').textContent = 'Add audio files on the dashboard, select a song, then press Start. Start enables your audio too. Friends open the listener page and tap Join. Everyone can play, pause, resume, and choose songs from the listener page.';
     $('help-music').href = '/admin'; $('help-music').textContent = 'Open dashboard';
   }
   $('room-link').value = new URL('/floor', location.href).href;

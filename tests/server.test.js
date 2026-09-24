@@ -94,14 +94,14 @@ test('state contract preserves position/rate/countdown through seek, pause, resu
   await p.command({ type: 'stop' });
 });
 
-test('malformed WS data cannot crash host; listeners cannot start tracks; readiness is scoped', async t => {
+test('malformed WS data cannot crash host; listeners can start tracks; readiness is scoped', async t => {
   const f = await fixture(t); const track = (await (await upload(f.url)).json()).track;
   const p = await peer(f.url), listener = await peer(f.url, 'listener');
   for (const raw of ['null', '[]', '12', '"hello"', '{', '{}', '{"type":null}']) p.socket.send(raw);
   for (const command of [{ type: 'seek', positionMs: 'oops' }, { type: 'speed', playbackRate: 50 }]) p.send(command);
   const clock = p.wait('clock:sync'); p.send({ type: 'clock:sync', t0: 42 }); assert.equal((await clock).t0, 42);
   listener.send({ type: 'start' }); const barrier = listener.wait('clock:sync'); listener.send({ type: 'clock:sync', t0: 43 }); await barrier;
-  assert.equal((await (await fetch(f.url + '/local/state')).json()).status, 'idle');
+  assert.equal((await (await fetch(f.url + '/local/state')).json()).status, 'running');
   let ready = p.wait('devices', m => m.devices.some(d => d.ready));
   listener.send({ type: 'listener:status', joined: true, ready: true, trackId: track.id, status: 'ready' }); assert.equal((await ready).devices[0].ready, true);
   ready = p.wait('devices'); listener.send({ type: 'listener:status', joined: true, ready: true, trackId: 'old', status: 'ready' }); assert.equal((await ready).devices[0].ready, false);
@@ -221,4 +221,40 @@ test('QR invitations use LAN listener URLs and reject arbitrary destinations', a
   assert.equal(qr.status, 200); assert.match(qr.headers.get('content-type'), /image\/svg\+xml/);
   assert.match(await qr.text(), /<svg.*viewBox=/);
   assert.equal((await fetch(f.url + '/local/invite.svg?url=https://example.com')).status, 400);
+});
+
+test('live selection and Previous/Next/Shuffle change the whole room without losing paused state', async t => {
+  const f = await fixture(t, { startDelayMs: 20 });
+  const a = (await (await upload(f.url, 150, 'a.wav')).json()).track;
+  const b = (await (await upload(f.url, 60000, 'b.wav')).json()).track;
+  const c = (await (await upload(f.url, 60000, 'c.wav')).json()).track;
+  const admin = await peer(f.url), listener = await peer(f.url, 'listener');
+  await admin.command({ type: 'queue:add', trackId: a.id });
+  await admin.command({ type: 'start' });
+  const observed = listener.wait('state', packet => packet.state.track.id === b.id && packet.state.status === 'running');
+  let state = await admin.command({ type: 'select-track', trackId: b.id });
+  assert.equal(state.status, 'running'); assert.equal(state.positionMs, 0); assert(state.startAt > state.serverNow);
+  assert.equal((await observed).state.startAt, state.startAt);
+  await new Promise(resolve => setTimeout(resolve, 200));
+  assert.equal((await (await fetch(f.url + '/local/state')).json()).status, 'running', 'old song end timer must not end the new song');
+  state = await admin.command({ type: 'previous-track' }); assert.equal(state.track.id, c.id);
+  state = await admin.command({ type: 'next-track' }); assert.equal(state.track.id, b.id);
+  state = await admin.command({ type: 'shuffle-track' }); assert.notEqual(state.track.id, b.id); assert.equal(state.status, 'running');
+  assert.deepEqual(state.queue, [a.id], 'manual navigation leaves the planned queue intact');
+  await admin.command({ type: 'pause' });
+  state = await admin.command({ type: 'select-track', trackId: c.id });
+  assert.equal(state.status, 'paused'); assert.equal(state.positionMs, 0); assert.equal(state.startAt, null);
+  state = await admin.command({ type: 'previous-track' }); assert.equal(state.track.id, a.id); assert.equal(state.status, 'paused');
+  state = await admin.command({ type: 'next-track' }); assert.equal(state.track.id, c.id);
+  for (const type of ['next-track', 'previous-track', 'shuffle-track', 'select-track']) {
+    const changed = admin.wait('state');
+    listener.send({ type, trackId: b.id });
+    const shared = (await changed).state;
+    assert.equal(shared.status, 'paused');
+    if (type === 'select-track') assert.equal(shared.track.id, b.id);
+  }
+  await admin.command({ type: 'room:options', waitForBuffers: true });
+  assert.equal((await admin.command({ type: 'resume' })).status, 'buffering');
+  state = await admin.command({ type: 'select-track', trackId: b.id }); assert.equal(state.status, 'buffering'); assert.equal(state.track.id, b.id);
+  await admin.command({ type: 'stop' });
 });

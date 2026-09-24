@@ -91,3 +91,13 @@ Admin navigation has Listener view and Voice chat buttons. `/floor` keeps shared
 Added `npm run local-host:https`: OpenSSL generates a persistent local CA and a renewed server certificate covering discovered or explicitly supplied host addresses. HTTPS uses port 3000; a separate HTTP setup page on 3001 distributes only the public certificate, its fingerprint, trust instructions and HTTPS links. Private keys remain in ignored `certs/` with restrictive Unix permissions. The launcher handles unavailable Termux address discovery, invalid ports/addresses, missing OpenSSL and occupied ports. Existing custom TLS configuration remains available. HTTP voice feedback now points to the concrete setup workflow.
 
 Phone certificate trust must be installed manually once; no browser security exemption or device trust changes are performed by the app. Keep the CA across restarts and project updates. Syntax checks for the launcher/server and whitespace checks passed. No tests were added or run for this change as requested; certificate enrollment and voice on physical phones remain unverified.
+
+## Follow-up: room enhancements and live track switching
+
+Room tools now provides local QR invitations, diagnostics and embedded voice on trusted pages. Added smooth/tight synchronization, optional listener buffer readiness with timeout and host override, ordered queue/auto-next, voice activity indicators, per-friend volume, explicit reconnect and optional local music ducking. Authentication remains deferred. See FEATURE-CHECKLIST.md for individual verification and physical-device limits.
+
+Track selection is no longer disabled during playback. Previous/Next wrap through the uploaded library; Shuffle selects a different track. The server broadcasts one shared start time for a live switch, preserves pause when paused, clears old timers and respects optional buffering. Manual selection leaves the queue intact. Listeners still only control shared Pause/Resume.
+
+Validation: 36 automated checks passed, including shared track switching, stale readiness, buffer timeouts, queue transitions and mocked voice/media lifecycles. Desktop disposable-host smoke confirmed enabled track controls, Next during playback, Shuffle while paused, and the diagnostics/invitation dialog. Phone voice, certificate enrollment, scanning and acoustic synchronization remain manual checks.
+
+Listener follow-up: /floor now exposes the uploaded song list, shared Play/Pause/Resume and Previous/Next/Shuffle. Server listener permissions match these controls; advanced dashboard commands remain restricted. Terminal regression checks only; no browser automation was run, as requested.

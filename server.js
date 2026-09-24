@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { randomUUID } = require('crypto');
+const { randomUUID, randomInt } = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const http = require('http');
@@ -90,10 +90,10 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, bufferWaitMs
       broadcastState();
     }, Math.min(2147483647, delay + 10));
   }
-  function selectTrack(track) {
+  function selectTrack(track, status = 'idle', publish = true) {
     clearTimeout(endTimer); clearTimeout(bufferTimer);
-    Object.assign(state, { track, status: 'idle', startAt: null, positionMs: 0, bufferNotice: '' });
-    resetReadiness(); broadcastState();
+    Object.assign(state, { track, status, startAt: null, positionMs: 0, bufferNotice: '' });
+    resetReadiness(); if (publish) broadcastState();
   }
   const upload = multer({
     storage: multer.diskStorage({ destination: mediaDir, filename: (req, file, done) => done(null, `${randomUUID()}${path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '')}`) }),
@@ -200,9 +200,9 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, bufferWaitMs
         checkBuffers();
       }
       // Direct admin access is intentional: roles route commands, not authenticate users.
-      // Every registered listener may pause/resume the shared room. Other
-      // controls remain on the dashboard; commands are explicit, not toggles.
-      if (!device || (device.role !== 'admin' && !(device.role === 'listener' && ['pause', 'resume'].includes(message.type)))) return;
+      // Listeners share song selection and play/pause; library management and
+      // advanced room settings remain dashboard controls.
+      if (!device || (device.role !== 'admin' && !(device.role === 'listener' && ['start', 'pause', 'resume', 'select-track', 'previous-track', 'next-track', 'shuffle-track'].includes(message.type)))) return;
       if (message.type === 'room:options') {
         if (['smooth', 'tight'].includes(message.syncMode)) state.syncMode = message.syncMode;
         if (typeof message.waitForBuffers === 'boolean') state.waitForBuffers = message.waitForBuffers;
@@ -226,6 +226,25 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, bufferWaitMs
         broadcastState(); return;
       }
       if (message.type === 'start-now' && state.status === 'buffering') { beginPlayback(); return; }
+      if (['select-track', 'next-track', 'previous-track', 'shuffle-track'].includes(message.type)) {
+        let track;
+        if (message.type === 'select-track') track = tracks.find(item => item.id === message.trackId);
+        else if (tracks.length) {
+          const index = tracks.findIndex(item => item.id === state.track?.id);
+          if (message.type === 'shuffle-track') {
+            const choices = tracks.filter(item => item.id !== state.track?.id);
+            track = choices.length ? choices[randomInt(choices.length)] : tracks[0];
+          } else {
+            const step = message.type === 'next-track' ? 1 : -1;
+            track = tracks[index < 0 ? 0 : (index + step + tracks.length) % tracks.length];
+          }
+        }
+        if (!track) return;
+        const continuePlaying = ['running', 'buffering'].includes(state.status);
+        selectTrack(track, state.status === 'paused' ? 'paused' : 'idle', !continuePlaying);
+        if (continuePlaying) requestPlayback();
+        return;
+      }
       if (message.type === 'start' && state.track && ['idle', 'ended'].includes(state.status)) {
         if (state.status === 'ended' || state.positionMs >= state.track.durationMs) state.positionMs = 0;
         requestPlayback(); return;
@@ -237,10 +256,6 @@ function createHost({ storageRoot = __dirname, startDelayMs = 3000, bufferWaitMs
       } else if (message.type === 'stop') {
         clearTimeout(bufferTimer); state.bufferNotice = '';
         state.status = 'idle'; state.startAt = null; state.positionMs = 0;
-      } else if (message.type === 'select-track' && ['idle', 'ended'].includes(state.status)) {
-        const track = tracks.find(item => item.id === message.trackId);
-        if (track) selectTrack(track);
-        return;
       } else if (message.type === 'seek' && state.track && Number.isFinite(message.positionMs)) {
         state.positionMs = Math.max(0, Math.min(state.track.durationMs, message.positionMs));
         if (state.status === 'ended') state.status = 'idle';

@@ -35,6 +35,7 @@ window.LocalShareMusicAdmin = (() => {
       $('sync-mode').value = state.syncMode || 'smooth'; $('sync-mode').disabled = !connected;
       $('wait-buffers').checked = !!state.waitForBuffers; $('wait-buffers').disabled = !connected;
       $('auto-next').checked = !!state.autoNext; $('auto-next').disabled = !connected;
+      for (const id of ['previous-track', 'next-track', 'shuffle-track']) $(id).disabled = !connected || tracks.length < 2;
       $('preview').hidden = !state.track;
       $('enable-audio').hidden = !state.track || sound.enabled;
       $('enable-audio').disabled = !connected || sound.enabling;
@@ -43,7 +44,7 @@ window.LocalShareMusicAdmin = (() => {
     function renderTracks() {
       $('track-count').textContent = `${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`;
       const active = ['running', 'paused', 'buffering'].includes(state.status);
-      $('tracks').innerHTML = tracks.length ? tracks.map(track => `<div class="track ${state.track?.id === track.id ? 'selected' : ''}"><button class="track-select" data-id="${escapeHtml(track.id)}" ${!connected || active ? 'disabled' : ''}><span>${escapeHtml(track.name)}</span><small>${format(track.durationMs)}</small></button><button class="delete-track" data-id="${escapeHtml(track.id)}" ${active && state.track?.id === track.id ? 'disabled' : ''} title="Delete ${escapeHtml(track.name)}">×</button></div>`).join('') : '<p class="muted">Add audio files from this device.</p>';
+      $('tracks').innerHTML = tracks.length ? tracks.map(track => `<div class="track ${state.track?.id === track.id ? 'selected' : ''}"><button class="track-select" data-id="${escapeHtml(track.id)}" ${!connected ? 'disabled' : ''}><span>${escapeHtml(track.name)}</span><small>${format(track.durationMs)}</small></button><button class="delete-track" data-id="${escapeHtml(track.id)}" ${!connected || active && state.track?.id === track.id ? 'disabled' : ''} title="Delete ${escapeHtml(track.name)}">×</button></div>`).join('') : '<p class="muted">Add audio files from this device.</p>';
       $('tracks').querySelectorAll('.track-select').forEach(button => {
         button.onclick = () => send({ type: 'select-track', trackId: button.dataset.id });
         const queue = document.createElement('button'); queue.className = 'queue-track'; queue.textContent = 'Queue';
@@ -174,6 +175,7 @@ window.LocalShareMusicAdmin = (() => {
       if (version === stateVersion && connected) send({ type });
     }
     $('start').onclick = () => startOrResume('start');
+    for (const type of ['previous-track', 'next-track', 'shuffle-track']) $(type).onclick = () => send({ type });
     $('start-now').onclick = () => send({ type: 'start-now' });
     $('sync-mode').onchange = () => send({ type: 'room:options', syncMode: $('sync-mode').value });
     $('wait-buffers').onchange = () => send({ type: 'room:options', waitForBuffers: $('wait-buffers').checked });

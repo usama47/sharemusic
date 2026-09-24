@@ -7,25 +7,40 @@ window.LocalShareMusicFloor = (() => {
     const screens = ['join-screen', 'waiting-screen', 'countdown-screen', 'playing-screen', 'ended-screen'];
     const show = id => screens.forEach(screen => $(screen).classList.toggle('hidden', screen !== id));
     const { format, elapsed } = window.ShareMusicRoom;
-    let room, player, connected = false, lastReport = '';
+    let room, player, connected = false, lastReport = '', tracks = [];
     let state = { status: 'idle', track: null, positionMs: 0, playbackRate: 1 };
     const now = () => room?.now() ?? Date.now();
+    function renderTracks() {
+      $('songs-summary').textContent = `Songs in this room (${tracks.length})`;
+      $('listener-tracks').replaceChildren();
+      if (!tracks.length) $('listener-tracks').textContent = 'No songs uploaded yet.';
+      for (const track of tracks) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'listener-song';
+        button.textContent = `${track.name} · ${format(track.durationMs)}`;
+        button.setAttribute('aria-pressed', String(track.id === state.track?.id));
+        button.disabled = !connected;
+        button.onclick = () => { if (connected) room.send({ type: 'select-track', trackId: track.id }); };
+        $('listener-tracks').appendChild(button);
+      }
+    }
     function render() {
       const sound = player.snapshot();
       window.ShareMusicTools?.update({ connected, state, sound });
       const current = elapsed(state, now());
       $('playing-screen').classList.toggle('is-paused', state.status !== 'running' || !connected);
       $('waiting-track').textContent = state.track?.name || 'Waiting for a song';
-      $('waiting-status').textContent = state.status === 'buffering' ? 'Waiting for everyone to join and buffer audio…' : state.track ? 'The host will start playback soon.' : 'The host will choose a song soon.';
+      $('waiting-status').textContent = state.status === 'buffering' ? 'Waiting for everyone to join and buffer audio…' : state.track ? 'Tap Play for everyone when ready.' : 'Waiting for uploaded songs.';
       $('playing-track').textContent = state.track?.name || 'ShareMusic';
       $('playing-duration').textContent = format(state.track?.durationMs || 0);
       $('playing-time').textContent = format(current);
       $('listener-progress-bar').style.width = `${state.track ? current / state.track.durationMs * 100 : 0}%`;
       $('join').disabled = sound.enabling || !connected || !state.track;
-      const controllable = ['running', 'paused', 'buffering'].includes(state.status);
-      $('room-controls').classList.toggle('hidden', !sound.enabled || !controllable);
+      const controllable = !!state.track;
+      $('room-controls').classList.toggle('hidden', !sound.enabled);
       $('room-toggle').disabled = !connected || !sound.enabled || !controllable;
-      $('room-toggle').textContent = state.status === 'paused' ? 'Resume for everyone' : 'Pause for everyone';
+      $('room-toggle').textContent = state.status === 'paused' ? 'Resume for everyone' : ['idle', 'ended'].includes(state.status) ? 'Play for everyone' : 'Pause for everyone';
+      for (const id of ['previous-track', 'next-track', 'shuffle-track']) $(id).disabled = !connected || tracks.length < 2;
       if (!sound.enabled) return show('join-screen');
       if (state.status === 'idle' || state.status === 'buffering') return show('waiting-screen');
       if (state.status === 'ended') return show('ended-screen');
@@ -45,20 +60,22 @@ window.LocalShareMusicFloor = (() => {
     } });
     $('join').onclick = () => player.enable();
     $('room-toggle').onclick = () => {
-      if (!connected || !player.snapshot().enabled || !['running', 'paused', 'buffering'].includes(state.status)) return;
-      room.send({ type: state.status === 'paused' ? 'resume' : 'pause' });
+      if (!connected || !player.snapshot().enabled || !state.track) return;
+      room.send({ type: state.status === 'paused' ? 'resume' : ['idle', 'ended'].includes(state.status) ? 'start' : 'pause' });
     };
+    for (const type of ['previous-track', 'next-track', 'shuffle-track']) $(type).onclick = () => { if (connected && tracks.length > 1) room.send({ type }); };
     room = window.ShareMusicRoom.connect({ role: 'listener', label: `Listener-${Math.random().toString(36).slice(2, 6)}`,
       onConnection(value) {
         connected = value; lastReport = '';
         $('reconnect').classList.toggle('hidden', value);
-        player.setConnected(value); render();
+        player.setConnected(value); render(); renderTracks();
       },
       onMessage(message) {
+        if (message.type === 'tracks') { tracks = message.tracks; renderTracks(); render(); return; }
         if (message.type !== 'state') return;
         state = message.state;
         $('join-status').textContent = state.track ? 'Tap Join to enable this device’s audio.' : 'Waiting for the host to choose a song.';
-        player.setState(state); render();
+        player.setState(state); render(); renderTracks();
       },
       onClock() { player.refresh(); render(); }
     });

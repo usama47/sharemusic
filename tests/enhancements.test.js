@@ -3,6 +3,18 @@ const assert = require('node:assert/strict');
 const { browser, flush } = require('./browser-harness');
 const { voiceMocks } = require('./voice-mocks');
 
+test('dashboard song navigation stays enabled during playback and disables on disconnect', async () => {
+  const h = browser('admin'); await flush(); h.sockets[0].open();
+  h.sockets[0].receive({ type: 'tracks', tracks: [{ id: 'track', name: 'one.wav', durationMs: 60000 }, { id: 'other', name: 'two.wav', durationMs: 60000 }] });
+  h.state({ status: 'running', startAt: h.time() });
+  assert.doesNotMatch(h.e('tracks').innerHTML, /class="track-select"[^>]+disabled/);
+  for (const type of ['previous-track', 'next-track', 'shuffle-track']) {
+    assert.equal(h.e(type).disabled, false); h.e(type).onclick(); assert.equal(h.sockets[0].sent.at(-1).type, type);
+  }
+  h.sockets[0].close();
+  for (const type of ['previous-track', 'next-track', 'shuffle-track']) assert(h.e(type).disabled);
+});
+
 test('normal drift does not seek; tight mode changes rate without interrupting playback', async () => {
   const h = browser('floor'); h.sockets[0].open(); h.state({}); await h.e('join').onclick();
   const startAt = h.time(); h.state({ status: 'running', startAt }); await flush();

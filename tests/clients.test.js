@@ -137,7 +137,15 @@ test('blocked admin audio does not block the room and has an accessible retry', 
 
 test('listener Pause/Resume sends explicit shared commands and reflects authoritative state', async () => {
   const h = browser('floor'); h.sockets[0].open(); h.state({}); await h.e('join').onclick();
-  assert(h.e('room-controls').classList.contains('hidden'));
+  assert(!h.e('room-controls').classList.contains('hidden'));
+  assert.equal(h.e('room-toggle').textContent, 'Play for everyone');
+  h.e('room-toggle').onclick(); assert.equal(h.sockets[0].sent.at(-1).type, 'start');
+  h.sockets[0].receive({ type: 'tracks', tracks: [{ id: 'track', name: 'one.wav', durationMs: 60000 }, { id: 'other', name: 'two.wav', durationMs: 60000 }] });
+  assert.equal(h.e('listener-tracks').children.length, 2);
+  h.e('listener-tracks').children[1].onclick(); assert.equal(h.sockets[0].sent.at(-1).trackId, 'other');
+  for (const type of ['previous-track', 'next-track', 'shuffle-track']) {
+    assert.equal(h.e(type).disabled, false); h.e(type).onclick(); assert.equal(h.sockets[0].sent.at(-1).type, type);
+  }
   h.state({ status: 'running', startAt: h.time() + 3000 });
   assert(!h.e('room-controls').classList.contains('hidden')); assert.equal(h.e('room-toggle').textContent, 'Pause for everyone');
   h.e('room-toggle').onclick(); assert.equal(h.sockets[0].sent.at(-1).type, 'pause');

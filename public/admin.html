@@ -32,6 +32,12 @@
             <button id="stop" class="button" disabled>Stop</button>
           </div>
           <p id="message" class="hint">Choose a song, then press Start.</p>
+          <div class="track-navigation" aria-label="Change song for everyone">
+            <button id="previous-track" class="button" type="button" disabled>Previous</button>
+            <button id="next-track" class="button" type="button" disabled>Next</button>
+            <button id="shuffle-track" class="button" type="button" disabled>Shuffle</button>
+          </div>
+          <p class="hint">Previous / Next follow the uploaded list. Shuffle picks a different song. You can also tap any song while playing; everyone switches after the countdown.</p>
           <button id="start-now" class="button" type="button" hidden>Start now — skip buffer wait</button>
           <details class="playback-options"><summary>Playback options</summary>
             <label>Synchronization <select id="sync-mode"><option value="smooth">Smooth (recommended)</option><option value="tight">Tighter timing</option></select></label>

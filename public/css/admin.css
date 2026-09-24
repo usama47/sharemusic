@@ -22,6 +22,8 @@ input { width: 100%; padding: 12px 13px; color: #fff; background: #071a11; borde
 .button-quiet { background: transparent; }
 .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .playback-options { margin: 12px 0; }
+.track-navigation { display: flex; flex-wrap: wrap; gap: 8px; }
+.track-navigation .button { flex: 1; min-width: 85px; }
 .playback-options summary { cursor: pointer; padding: 10px 0; }
 .playback-options label { display: block; margin: 12px 0; }
 .up-next { margin-top: 24px; border-top: 1px solid #39533d; padding-top: 18px; }

@@ -17,11 +17,13 @@ npm start
 
 Open `/admin`, upload a supported audio file, and select a track. Listeners open `/floor` and tap Join when a track is available. The dashboard shows each listener's reported loading, ready, playing, paused, blocked, or error status. Readiness means audio is enabled and the browser has future media data; it does not mean the entire file is downloaded. Start is a host decision, not a barrier waiting for every listener.
 
-Start and Resume use a three-second countdown. Pause, Stop, seeking, and speed changes affect the room. Stop resets position. Seeking while stopped sets the next start position. Selecting a track resets the position. A stopped selected track can be deleted, including the last track. The next remaining track is then selected. There is no playlist or automatic next track.
+Start and Resume use a three-second countdown. Pause, Stop, seeking, and speed changes affect the room. Stop resets position. Seeking while stopped sets the next start position. Select any uploaded track while playing to switch everyone after a fresh countdown. Previous and Next wrap through the uploaded list; Shuffle chooses a different song. Switching while paused keeps the room paused at the new song's beginning. A stopped selected track can be deleted, including the last track.
+
+Use Queue beside a song to build Up next, then reorder or remove entries. Enable automatic next song to play queued songs when the current song ends. Manual track selection leaves the queue intact. Playback options also offer an optional wait for connected listeners to enable audio and buffer the selected position. Start now bypasses that wait; after 30 seconds an unfinished wait pauses with an explanation. Queue and playback options reset when the server restarts.
 
 The dashboard also plays synchronized room audio. Pressing Start or Resume enables audio on the admin device; if the browser blocks it or the dashboard joins an already-running room, use **Enable audio on this device**. The separate native preview controls still audition only the selected file; room playback pauses preview.
 
-Listeners have **Pause for everyone** and **Resume for everyone** controls after joining, including during the countdown. Either action updates the server and all listeners and dashboards. Resume uses the same shared countdown and position. Track selection, Start, Stop, seeking, and speed remain dashboard controls.
+Listeners have **Pause for everyone** and **Resume for everyone** controls after joining, including during the countdown. Either action updates the server and all listeners and dashboards. Resume uses the same shared countdown and position. Listeners can also start playback, choose uploaded songs, and use Previous / Next / Shuffle on `/floor`. Stop, seeking, speed, queue management and uploads remain dashboard controls.
 
 ## Storage and access
 
@@ -41,6 +43,8 @@ Clients estimate server time with round-trip clock samples and correct media dri
 
 ## Validation
 
+Feature implementation and verification status is tracked in [FEATURE-CHECKLIST.md](FEATURE-CHECKLIST.md). Smooth synchronization remains the default. Tighter timing uses a smaller drift tolerance and up to 3% speed correction, with the same conservative recovery-seek limits.
+
 ```sh
 npm test
 npm run verify-demo
@@ -52,9 +56,9 @@ See `REVIEW-FIXES.md` for the finding-by-finding disposition and validation scop
 
 ## Voice chat
 
-Use the **Voice chat** button on `/admin` or `/floor`. The voice page is `/voice`; listener navigation returns to `/floor` and does not expose the dashboard. Voice is independent of the selected music track and works even with an empty library. Navigating to voice leaves the current page's music player; it does not stop the shared music room.
+Use **Voice chat** or **Room tools** on `/admin` or `/floor`. On trusted HTTPS, voice opens in a panel while music continues on the same page. HTTP users get a link to upgrade their music page and guided certificate setup. Room tools also provides a local QR invitation, copyable network links, and connection/audio/microphone diagnostics. The standalone `/voice` page remains available. Voice works even with an empty music library.
 
-Enter a name and Join voice. Microphone permission is requested only after that click. The mic starts muted. **Hold to talk** transmits while pressed; releasing/canceling the press mutes it. **Turn on open mic** enables hands-free talking until switched off. Up to eight people can join. The list shows membership, microphone-on state (not speech detection), and each peer connection's state. Leave releases the microphone and all peer connections. A lost server connection also releases the mic; rejoining is explicit. Hiding the page mutes transmission. Use headphones to reduce echo.
+Enter a name and Join voice. Microphone permission is requested only after that click. The mic starts muted. **Hold to talk** transmits while pressed; releasing/canceling the press mutes it. **Turn on open mic** enables hands-free talking until switched off. Up to eight people can join. Speaking indicators respond to audio activity; each friend has a local volume slider. Reconnect explicitly rejoins muted. Leave releases the microphone and all peer connections. Closing the tools panel keeps voice active; End voice disconnects it. A lost server connection releases the mic, and hiding the page mutes transmission. Optional music ducking lowers this device's music during speech where browser volume control is supported. Use headphones to reduce echo.
 
 Voice uses a WebRTC peer connection between each pair and local WebSocket signaling. No public STUN/TURN service, voice recording, or audio upload is used. Everyone must have a reachable local network path. Client isolation, multicast/mDNS restrictions, device firewalls or failed peer connectivity can prevent voice even while music works. There is no guaranteed distance or screen-lock/background operation. This is a foreground small-group voice feature, not a replacement for safety-critical radio communication.
 
