@@ -11,10 +11,13 @@ window.LocalShareMusicFloor = (() => {
     let state = { status: 'idle', track: null, positionMs: 0, playbackRate: 1 };
     const now = () => room?.now() ?? Date.now();
     function renderTracks() {
+      const keywords = String($('song-search').value || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const matches = tracks.filter(track => keywords.every(word => track.name.toLowerCase().includes(word)));
+      $('search-results').textContent = keywords.length ? `${matches.length} of ${tracks.length} songs match` : '';
       $('songs-summary').textContent = `Songs in this room (${tracks.length})`;
       $('listener-tracks').replaceChildren();
-      if (!tracks.length) $('listener-tracks').textContent = 'No songs uploaded yet.';
-      for (const track of tracks) {
+      if (!matches.length) $('listener-tracks').textContent = tracks.length ? 'No matching songs. Try other keywords or clear the search.' : 'No songs uploaded yet.';
+      for (const track of matches) {
         const button = document.createElement('button');
         button.type = 'button'; button.className = 'listener-song';
         button.textContent = `${track.name} · ${format(track.durationMs)}`;
@@ -24,6 +27,7 @@ window.LocalShareMusicFloor = (() => {
         $('listener-tracks').appendChild(button);
       }
     }
+    $('song-search').oninput = renderTracks;
     function render() {
       const sound = player.snapshot();
       window.ShareMusicTools?.update({ connected, state, sound });

@@ -40,6 +40,9 @@
   <section class="listener-library" aria-label="Uploaded songs">
     <details><summary id="songs-summary">Songs in this room</summary>
       <p class="hint">Choose any song. Previous / Next follow this list; Shuffle picks another song.</p>
+      <label for="song-search">Search songs</label>
+      <input id="song-search" type="search" placeholder="Search by song name or keywords" autocomplete="off" aria-controls="listener-tracks">
+      <p id="search-results" class="hint" role="status"></p>
       <div id="listener-tracks"><p>No songs uploaded yet.</p></div>
     </details>
   </section>

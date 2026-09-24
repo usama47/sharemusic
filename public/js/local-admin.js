@@ -42,9 +42,12 @@ window.LocalShareMusicAdmin = (() => {
       $('host-audio-status').textContent = sound.message || (sound.enabling ? 'Enabling audio…' : sound.enabled ? 'Room audio is enabled on this device.' : state.track ? 'Start also enables your audio. If joining a running room, tap Enable audio.' : '');
     }
     function renderTracks() {
+      const keywords = String($('song-search').value || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const matches = tracks.filter(track => keywords.every(word => track.name.toLowerCase().includes(word)));
+      $('search-results').textContent = keywords.length ? `${matches.length} of ${tracks.length} songs match` : '';
       $('track-count').textContent = `${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`;
       const active = ['running', 'paused', 'buffering'].includes(state.status);
-      $('tracks').innerHTML = tracks.length ? tracks.map(track => `<div class="track ${state.track?.id === track.id ? 'selected' : ''}"><button class="track-select" data-id="${escapeHtml(track.id)}" ${!connected ? 'disabled' : ''}><span>${escapeHtml(track.name)}</span><small>${format(track.durationMs)}</small></button><button class="delete-track" data-id="${escapeHtml(track.id)}" ${!connected || active && state.track?.id === track.id ? 'disabled' : ''} title="Delete ${escapeHtml(track.name)}">×</button></div>`).join('') : '<p class="muted">Add audio files from this device.</p>';
+      $('tracks').innerHTML = matches.length ? matches.map(track => `<div class="track ${state.track?.id === track.id ? 'selected' : ''}"><button class="track-select" data-id="${escapeHtml(track.id)}" ${!connected ? 'disabled' : ''}><span>${escapeHtml(track.name)}</span><small>${format(track.durationMs)}</small></button><button class="delete-track" data-id="${escapeHtml(track.id)}" ${!connected || active && state.track?.id === track.id ? 'disabled' : ''} title="Delete ${escapeHtml(track.name)}">×</button></div>`).join('') : (tracks.length ? '<p class="muted">No matching songs. Try other keywords or clear the search.</p>' : '<p class="muted">Add audio files from this device.</p>');
       $('tracks').querySelectorAll('.track-select').forEach(button => {
         button.onclick = () => send({ type: 'select-track', trackId: button.dataset.id });
         const queue = document.createElement('button'); queue.className = 'queue-track'; queue.textContent = 'Queue';
@@ -62,6 +65,7 @@ window.LocalShareMusicAdmin = (() => {
         } catch (failure) { error(failure.message); }
       });
     }
+    $('song-search').oninput = renderTracks;
     function renderQueue() {
       $('queue-list').replaceChildren();
       const queue = state.queue || [];

@@ -56,6 +56,9 @@
           <label id="upload-drop" class="upload-drop"><span class="upload-icon">+</span><span class="upload-title">Add audio files</span><span class="upload-subtitle">Tap to browse or drop multiple files here</span><input id="upload" type="file" accept="audio/*,.mp3,.m4a,.ogg,.oga,.wav,.webm" hidden multiple></label>
           <p class="upload-note">Select multiple files. Uploads continue one by one and stay available for this room.</p>
           <div id="upload-queue" class="upload-queue" aria-live="polite"></div>
+          <label for="song-search">Search songs</label>
+          <input id="song-search" type="search" placeholder="Search by song name or keywords" autocomplete="off" aria-controls="tracks">
+          <p id="search-results" class="hint" role="status"></p>
           <div id="tracks" class="track-list"></div>
           <section class="up-next" aria-label="Playlist queue">
             <h2>Up next</h2><label><input id="auto-next" type="checkbox"> Automatically play the queue</label>
